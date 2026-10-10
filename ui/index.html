@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kerygma</title>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div id="vault-name"></div>
+        <div id="tree" role="tree"></div>
+        <footer id="sidebar-footer">
+          <button id="open-vault" class="icon-button" type="button" data-icon="folder-open" data-tooltip="Åpne mappe"></button>
+          <button id="settings-button" class="icon-button" type="button" data-icon="settings" data-tooltip="Innstillinger (Cmd/Ctrl + ,)"></button>
+        </footer>
+      </aside>
+      <main id="main">
+        <header id="toolbar" hidden>
+          <h1 id="title" data-tooltip="Klikk for å gi nytt navn"></h1>
+          <div id="actions">
+            <div id="format" role="toolbar" aria-label="Formatering">
+              <select id="heading" data-tooltip="Overskrift på linja" aria-label="Overskrift">
+                <option value="0">Vanlig tekst</option>
+                <option value="1">Overskrift 1</option>
+                <option value="2">Overskrift 2</option>
+                <option value="3">Overskrift 3</option>
+              </select>
+              <button id="format-bold" class="icon-button" type="button" data-icon="bold" data-tooltip="Fet (Cmd/Ctrl + B)"></button>
+              <button id="format-italic" class="icon-button" type="button" data-icon="italic" data-tooltip="Kursiv (Cmd/Ctrl + I)"></button>
+              <button id="format-underline" class="icon-button" type="button" data-icon="underline" data-tooltip="Understreket (Cmd/Ctrl + U)"></button>
+              <button id="format-strikethrough" class="icon-button" type="button" data-icon="strikethrough" data-tooltip="Overstreket (Cmd/Ctrl + Shift + X)"></button>
+            </div>
+            <button id="toggle-preview" class="icon-button" type="button" data-icon="eye" data-tooltip="Lesevisning (Cmd/Ctrl + E)"></button>
+            <button id="insert-verse" class="icon-button" type="button" data-icon="book-open" data-tooltip="Sett inn bibelvers (Cmd/Ctrl + Shift + B)"></button>
+            <button id="create-presentation" class="icon-button" type="button" data-icon="presentation" data-tooltip="Lag presentasjon (Cmd/Ctrl + Shift + M)"></button>
+            <button id="show-presentation" class="icon-button" type="button" data-icon="play" data-tooltip="Vis presentasjon (Cmd/Ctrl + Shift + P)"></button>
+          </div>
+        </header>
+        <div id="editor" hidden></div>
+        <article id="preview" class="markdown" hidden></article>
+        <div id="empty">
+          <p id="empty-text">Åpne en mappe med manus for å komme i gang.</p>
+          <button id="empty-open" type="button">Åpne mappe …</button>
+        </div>
+      </main>
+    </div>
+    <div id="notices" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+/target
+/bibler/*.bin
+node_modules/
+dist/
+.DS_Store
+.idea/
+/src-tauri/gen/

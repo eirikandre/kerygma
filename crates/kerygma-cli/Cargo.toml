@@ -1,0 +1,12 @@
+[package]
+name = "kerygma-cli"
+version.workspace = true
+edition.workspace = true
+description = "Funksjonene i Kerygma fra terminalen"
+
+[[bin]]
+name = "kerygma"
+path = "src/main.rs"
+
+[dependencies]
+kerygma-core = { path = "../kerygma-core" }
