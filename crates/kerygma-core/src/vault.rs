@@ -24,7 +24,7 @@ pub enum Kind {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Tree {
-    /// Navnet som vises: notater uten `.md`, andre filer med filendelse.
+    /// Navnet som vises: manus uten `.md`, andre filer med filendelse.
     pub name: String,
     /// Stien relativt til vault-roten, med `/`. Tom for roten.
     pub path: String,
@@ -95,7 +95,7 @@ impl Vault {
         Some(parts.join("/"))
     }
 
-    /// Alle notater (`.md`) i vaulten, uten skjulte mapper, sortert etter sti.
+    /// Alle manus (`.md`) i vaulten, uten skjulte mapper, sortert etter sti.
     pub fn notes(&self) -> Vec<String> {
         let mut notes = Vec::new();
         let mut stack = vec![(self.root.clone(), String::new())];
@@ -129,7 +129,7 @@ impl Vault {
         }
     }
 
-    /// Om noten er en presentasjon med manuset i samme mappe. Bare starten av fila
+    /// Om fila er en presentasjon med manuset i samme mappe. Bare starten av fila
     /// leses: markøren står øverst, etter en eventuell frontmatter.
     fn is_presentation(&self, path: &str, suffix: &str) -> bool {
         const HEAD: u64 = 16 * 1024;
@@ -230,7 +230,7 @@ impl Vault {
         Ok(path)
     }
 
-    /// Gir fila eller mappa et nytt navn i samme mappe. Notater beholder `.md`.
+    /// Gir fila eller mappa et nytt navn i samme mappe. Manus beholder `.md`.
     pub fn rename(&self, path: &str, new_name: &str) -> Result<String, String> {
         let new_name = valid_name(new_name)?;
         if new_name.is_empty() {
@@ -290,8 +290,8 @@ impl Vault {
     }
 
     /// Finner et bilde som Obsidian: først relativt til vault-roten, så til
-    /// mappa notatet ligger i, og til slutt første fil i vaulten med det
-    /// filnavnet. `![](…)` (ikke wikilenke) prøver mappa til notatet først.
+    /// mappa fila ligger i, og til slutt første fil i vaulten med det
+    /// filnavnet. `![](…)` (ikke wikilenke) prøver mappa til fila først.
     pub fn find_file(&self, target: &str, note: &str, wiki: bool, index: &OnceLock<HashMap<String, PathBuf>>) -> Option<PathBuf> {
         let target = percent_decode(target.trim());
         let target = target.trim_start_matches('/');
@@ -312,8 +312,8 @@ impl Vault {
         index.get_or_init(|| self.files_by_name()).get(&name).cloned()
     }
 
-    /// Finner notatet en `[[lenke]]` peker på, som Obsidian: `[[Notat]]` er
-    /// `Notat.md`, og `#overskrift` på slutten ignoreres.
+    /// Finner fila en `[[lenke]]` peker på, som Obsidian: `[[Manus]]` er
+    /// `Manus.md`, og `#overskrift` på slutten ignoreres.
     pub fn resolve_link(&self, target: &str, from: &str) -> Option<String> {
         let name = target.split('#').next().unwrap_or("").trim();
         if name.is_empty() {
@@ -328,7 +328,7 @@ impl Vault {
         self.relative(&found)
     }
 
-    /// Gir URL-en til bilder i et notat, for [`crate::markdown`].
+    /// Gir URL-en til bilder i en fil, for [`crate::markdown`].
     pub fn image_resolver<'a>(&'a self, note: &'a str) -> impl Fn(&str, bool) -> Option<String> + 'a {
         let index = OnceLock::new();
         move |target: &str, wiki: bool| self.find_file(target, note, wiki, &index).map(|path| asset_url(&path))

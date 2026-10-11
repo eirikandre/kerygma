@@ -70,7 +70,7 @@ const FIELDS: Field[] = [
   {
     key: "importFolder",
     name: "Mappe for importerte Word-manus",
-    desc: "Hvor «Importer Word-manus» legger markdown-filene. Tom: mappa til notatet som er åpent. «Importer Word-manus hit» på en mappe i treet går foran.",
+    desc: "Hvor «Importer Word-manus» legger markdown-filene. Tom: mappa til manuset som er åpent. «Importer Word-manus hit» på en mappe i treet går foran.",
     type: "text",
     placeholder: "Manus",
   },
@@ -166,9 +166,9 @@ export async function openSettings() {
   hotkeys.className = "setting-desc";
   hotkeys.textContent =
     "Hurtigtaster: Cmd/Ctrl + Shift + M lager presentasjon, Cmd/Ctrl + Shift + P viser den, " +
-    "Cmd/Ctrl + Shift + B setter inn bibelvers, Cmd/Ctrl + E bytter til lesevisning og Cmd/Ctrl + N lager en ny note. " +
+    "Cmd/Ctrl + Shift + B setter inn bibelvers, Cmd/Ctrl + E bytter til lesevisning og Cmd/Ctrl + N lager et nytt manus. " +
     "Cmd/Ctrl + B, I og U gir fet, kursiv og understreket tekst, Cmd/Ctrl + Shift + X overstreket og Cmd/Ctrl + Shift + . sitat. " +
-    "Cmd/Ctrl + Shift + F søker i alle notatene.";
+    "Cmd/Ctrl + Shift + F søker i alle manusene.";
   modal.el.append(hotkeys);
 
   const footer = document.createElement("div");

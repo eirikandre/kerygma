@@ -150,7 +150,7 @@ pub fn delete(state: State<AppState>, path: String) -> Result<()> {
     with_vault(&state, |open| open.vault.delete(&path))
 }
 
-/// Søk i navn og innhold i alle notatene.
+/// Søk i navn og innhold i alle manusene.
 #[tauri::command(async)]
 pub fn search(state: State<'_, AppState>, query: String) -> Result<Vec<kerygma_core::search::SearchResult>> {
     let (vault, suffix) = with_vault(&state, |open| Ok((open.vault.clone(), open.settings.suffix.clone())))?;
@@ -287,7 +287,7 @@ pub fn presenter(state: State<AppState>, path: String, content: Option<String>) 
     Ok(Presenter { path: paths.manuscript, slides: view.slides, manuscript: view.manuscript, warnings })
 }
 
-/// Presentasjonen som eksporteres: notatet selv hvis det er en presentasjon, ellers
+/// Presentasjonen som eksporteres: fila selv hvis det er en presentasjon, ellers
 /// presentasjonen som er laget fra manuset. `None` når den ikke er laget ennå.
 #[tauri::command]
 pub fn presentation_path(state: State<AppState>, path: String, content: String) -> Result<Option<String>> {
@@ -407,7 +407,7 @@ pub struct ImportTarget {
     /// Den absolutte stien til .docx-fila.
     file: String,
     name: String,
-    /// Notatet den blir til, relativt til vault-roten.
+    /// Manuset den blir til, relativt til vault-roten.
     path: String,
     exists: bool,
     is_folder: bool,

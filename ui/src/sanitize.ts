@@ -1,4 +1,4 @@
-// HTML fra markdown (lesevisningen og slidene) settes inn med innerHTML. Notatene
+// HTML fra markdown (lesevisningen og slidene) settes inn med innerHTML. Manusene
 // kan inneholde rå HTML, og skript i vinduet kan kalle alle kommandoene i appen
 // (skrive og slette filer), så skript og hendelser fjernes først, som i Obsidian.
 

@@ -1,7 +1,7 @@
-//! Søk i alle notatene i vaulten, på filnavn og innhold.
+//! Søk i alle manusene i vaulten, på filnavn og innhold.
 //!
-//! Søketeksten deles i ord. Et notat treffer når hvert ord finnes i navnet
-//! eller i teksten (uten hensyn til store og små bokstaver). Notater der alle
+//! Søketeksten deles i ord. En fil treffer når hvert ord finnes i navnet
+//! eller i teksten (uten hensyn til store og små bokstaver). Filer der alle
 //! ordene står i navnet, kommer først, med det korteste navnet øverst. Alt sammenlignes i NFC, siden filnavn
 //! fra Finder kan ha «å» som «a» + ring (NFD).
 
@@ -13,9 +13,9 @@ use unicode_normalization::UnicodeNormalization;
 use crate::path_name;
 use crate::vault::Vault;
 
-/// Høyst så mange notater i svaret.
+/// Høyst så mange filer i svaret.
 pub const MAX_RESULTS: usize = 100;
-/// Høyst så mange linjer per notat i svaret (`total` sier hvor mange det er).
+/// Høyst så mange linjer per fil i svaret (`total` sier hvor mange det er).
 pub const MAX_LINES: usize = 5;
 /// Lengre linjer kortes ned rundt det første treffet.
 const SNIPPET_CHARS: usize = 160;
@@ -31,7 +31,7 @@ pub struct SearchResult {
     pub name_match: bool,
     /// De første linjene med treff.
     pub lines: Vec<LineMatch>,
-    /// Antall linjer med treff i hele notatet.
+    /// Antall linjer med treff i hele fila.
     pub total: usize,
 }
 
@@ -48,7 +48,7 @@ pub fn terms(query: &str) -> Vec<String> {
     query.nfc().collect::<String>().split_whitespace().map(str::to_lowercase).collect()
 }
 
-/// Søker i alle notatene i vaulten. Presentasjoner med manuset ved siden av hoppes
+/// Søker i alle manusene i vaulten. Presentasjoner med manuset ved siden av hoppes
 /// over, som i treet: treffene står i manuset.
 pub fn search(vault: &Vault, query: &str, suffix: &str) -> Vec<SearchResult> {
     let terms = terms(query);
@@ -78,7 +78,7 @@ pub fn search(vault: &Vault, query: &str, suffix: &str) -> Vec<SearchResult> {
     results
 }
 
-/// Treffet i ett notat, eller `None` hvis ikke alle ordene finnes i navn eller tekst.
+/// Treffet i én fil, eller `None` hvis ikke alle ordene finnes i navn eller tekst.
 pub fn search_note(path: &str, content: &str, terms: &[String]) -> Option<SearchResult> {
     let name: String = path_name(path).nfc().collect();
     let content: String = content.nfc().collect();
@@ -190,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn hoyst_fem_linjer_per_notat() {
+    fn hoyst_fem_linjer_per_fil() {
         let content = "tro\n".repeat(8);
         let result = search_note("x.md", &content, &terms("tro")).unwrap();
         assert_eq!(result.lines.len(), MAX_LINES);

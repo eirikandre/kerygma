@@ -36,7 +36,7 @@ export interface Appearance {
   theme: Theme;
 }
 
-/** Et notat med treff i søket. */
+/** En fil med treff i søket. */
 export interface SearchResult {
   path: string;
   name: string;
@@ -44,7 +44,7 @@ export interface SearchResult {
   nameMatch: boolean;
   /** De første linjene med treff (linjenummer fra 1). */
   lines: Array<{ line: number; text: string }>;
-  /** Antall linjer med treff i hele notatet. */
+  /** Antall linjer med treff i hele fila. */
   total: number;
 }
 
@@ -108,7 +108,7 @@ export const api = {
     invoke<CreateResult>("create_presentation", { path, content, overwrite }),
   slides: (path: string, content: string | null) => invoke<string[]>("slides", { path, content }),
   presenter: (path: string, content: string | null) => invoke<Presenter>("presenter", { path, content }),
-  /** Presentasjonen som eksporteres fra notatet, eller null når den ikke er laget. */
+  /** Presentasjonen som eksporteres fra fila, eller null når den ikke er laget. */
   presentationPath: (path: string, content: string) => invoke<string | null>("presentation_path", { path, content }),
   lookupVerse: (input: string) => invoke<Suggestion[]>("lookup_verse", { input }),
   quoteVerse: (verse: string, before: string, after: string) => invoke<string>("quote_verse", { verse, before, after }),
@@ -140,7 +140,7 @@ export function folderOf(path: string): string {
 /** Markøren appen setter i presentasjoner, som `presentation_source` i kerygma-core. */
 const PRESENTATION_MARKER = /^<!-- kerygma-presentasjon: (.+?) -->[ \t]*\r?$/m;
 
-/** Manuset (filnavnet, i samme mappe) presentasjonen er laget fra, eller undefined for andre notater. */
+/** Manuset (filnavnet, i samme mappe) presentasjonen er laget fra, eller undefined for andre filer. */
 export function presentationSource(content: string): string | undefined {
   return PRESENTATION_MARKER.exec(content)?.[1];
 }

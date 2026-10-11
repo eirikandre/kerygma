@@ -90,8 +90,8 @@ export async function stopPresenter() {
 }
 
 /**
- * Starter talervisningen for notatet (manuset eller presentasjonen laget fra det).
- * `content` er innholdet i editoren når notatet er manuset, så ulagrede endringer blir med.
+ * Starter talervisningen for fila (manuset eller presentasjonen laget fra det).
+ * `content` er innholdet i editoren når fila er manuset, så ulagrede endringer blir med.
  */
 export async function startPresenter(path: string, content: string | null, target: AudienceTarget) {
   if (running) return;

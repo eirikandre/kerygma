@@ -144,7 +144,7 @@ export class TreeView {
       });
       row.addEventListener("contextmenu", (event) =>
         contextMenu(event, [
-          { label: "Ny note", action: () => this.actions.newNote(node.path) },
+          { label: "Nytt manus", action: () => this.actions.newNote(node.path) },
           { label: "Ny mappe", action: () => this.actions.newFolder(node.path) },
           { label: "Importer Word-manus hit …", action: () => this.actions.importWord(node.path) },
           { label: "Gi nytt navn", action: () => this.startRename(node.path) },

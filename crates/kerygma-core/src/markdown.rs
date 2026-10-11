@@ -2,7 +2,7 @@
 //!
 //! Bruker comrak (CommonMark + GFM), og gjør i tillegg det Obsidian gjør:
 //! skjuler frontmatter, fjerner `%% … %%`, viser callouts, `==utheving==`,
-//! `![[bilde.png|400]]` og `[[Notat|tekst]]`. Presentasjonen deles på `---`
+//! `![[bilde.png|400]]` og `[[Manus|tekst]]`. Presentasjonen deles på `---`
 //! (`ThematicBreak`) i AST-et, som Slides i Obsidian.
 
 use std::sync::LazyLock;
@@ -287,7 +287,7 @@ fn embed_html(inner: &str, images: ImageResolver) -> String {
     }
 }
 
-/// `[[Notat]]` og `[[Notat|tekst]]` som en lenke appen åpner selv.
+/// `[[Manus]]` og `[[Manus|tekst]]` som en lenke appen åpner selv.
 fn link_html(inner: &str) -> String {
     let (target, text) = inner.split_once('|').map_or((inner, inner), |(t, a)| (t, a));
     format!(

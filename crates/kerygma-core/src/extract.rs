@@ -20,7 +20,7 @@ static HEADING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^#{1,6}\s").unwr
 static FENCE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(```|~~~)").unwrap());
 static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(?:[-*+]|[0-9]+[.)])\s+").unwrap());
 static BLOCKQUOTE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*>").unwrap());
-/// `![[bilde.png|300]]` (bare bildefiler, ikke andre notater) og `![alt](bilde.png)`.
+/// `![[bilde.png|300]]` (bare bildefiler, ikke andre manus) og `![alt](bilde.png)`.
 static IMAGE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)!\[\[[^\]|#]+\.(?:png|jpe?g|gif|svg|webp|bmp|avif)(?:[|#][^\]]*)?\]\]|!\[[^\]]*\]\([^)]+\)")
         .unwrap()

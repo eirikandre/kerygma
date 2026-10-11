@@ -49,7 +49,7 @@ const state = {
   saved: "",
   dirty: false,
   mode: "edit" as Mode,
-  /** Visningen sist valgt i et vanlig notat; presentasjoner åpnes alltid i lesevisning. */
+  /** Visningen sist valgt i et manus; presentasjoner åpnes alltid i lesevisning. */
   manuscriptMode: loadManuscriptMode(),
   saveTimer: undefined as number | undefined,
   /** Med to skjermer kan talervisningen startes fra manuset også. */
@@ -86,7 +86,7 @@ onAppearanceChange(() => editor.view.requestMeasure());
 zoomWithWheel([$("editor"), $("preview")]);
 void loadAppearance();
 
-// Søk i alle notatene. Et treff åpner notatet og går til linja.
+// Søk i alle manusene. Et treff åpner fila og går til linja.
 $("search-icon").innerHTML = icon("search");
 const search = new SearchView($<HTMLInputElement>("search"), $("search-results"), $("tree"), (path, line) => {
   void run(() => openNoteAt(path, line));
@@ -128,7 +128,7 @@ async function openVault(path?: string) {
   $("search-box").hidden = false;
   $("import-word").hidden = false;
   search.clear();
-  $("empty-text").textContent = "Velg et notat i treet, eller lag et nytt med Cmd/Ctrl + N.";
+  $("empty-text").textContent = "Velg et manus i treet, eller lag et nytt med Cmd/Ctrl + N.";
   $("empty-open").hidden = true;
 }
 
@@ -139,13 +139,13 @@ function showTree(result: Tree) {
   updatePresentationUi();
 }
 
-/** Finnes noten i treet? */
+/** Finnes fila i treet? */
 function inTree(path: string, node: Tree | undefined = state.tree): boolean {
   return !!node && (node.path === path || node.children.some((child) => inTree(path, child)));
 }
 
 /**
- * Knappene og varselet etter om notatet er en presentasjon laget av appen
+ * Knappene og varselet etter om fila er en presentasjon laget av appen
  * (markøren `<!-- kerygma-presentasjon: … -->`): bare presentasjoner kan vises,
  * «Lag presentasjon» lager den på nytt fra manuset, og i redigering varsles det
  * om at endringer blir overskrevet.
@@ -195,7 +195,7 @@ async function refreshTree() {
   if (state.vaultPath) showTree(await api.tree());
 }
 
-// --- Notater -------------------------------------------------------------
+// --- Manus ---------------------------------------------------------------
 
 async function save() {
   window.clearTimeout(state.saveTimer);
@@ -213,8 +213,8 @@ async function save() {
 }
 
 /**
- * Åpner notatet. Presentasjoner åpnes i lesevisning, vanlige notater i visningen
- * som sist ble valgt i et vanlig notat, med mindre `mode` er oppgitt.
+ * Åpner fila. Presentasjoner åpnes i lesevisning, manus i visningen
+ * som sist ble valgt i et manus, med mindre `mode` er oppgitt.
  */
 async function openNote(path: string, mode?: Mode) {
   if (path === state.path) return;
@@ -233,7 +233,7 @@ async function openNote(path: string, mode?: Mode) {
   if (state.mode === "edit") editor.focus();
 }
 
-/** Åpner notatet fra et søketreff, i redigering, og går til linja med treffet. */
+/** Åpner fila fra et søketreff, i redigering, og går til linja med treffet. */
 async function openNoteAt(path: string, line?: number) {
   await openNote(path);
   if (line === undefined || state.path !== path) return;
@@ -272,7 +272,7 @@ async function showMode() {
 async function togglePreview() {
   if (!state.path) return;
   state.mode = state.mode === "edit" ? "preview" : "edit";
-  // Valget huskes for vanlige notater; i en presentasjon gjelder det bare der og da.
+  // Valget huskes for manus; i en presentasjon gjelder det bare der og da.
   if (!presentationSource(editor.getValue())) {
     state.manuscriptMode = state.mode;
     try {
@@ -286,7 +286,7 @@ async function togglePreview() {
 }
 
 /**
- * Lenker i lesevisningen: [[Notat]] og [tekst](Notat.md) åpnes i appen, #anker (fotnoter)
+ * Lenker i lesevisningen: [[Manus]] og [tekst](Manus.md) åpnes i appen, #anker (fotnoter)
  * rulles til, og nettadresser åpnes i nettleseren. Vinduet skal aldri navigere bort fra appen.
  */
 $("preview").addEventListener("click", (event) => {
@@ -314,7 +314,7 @@ $("preview").addEventListener("click", (event) => {
   }
 });
 
-/** `%20` og lignende i lenker til filer, som `[tekst](Mitt%20notat.md)`. */
+/** `%20` og lignende i lenker til filer, som `[tekst](Mitt%20manus.md)`. */
 function decodeLink(href: string): string {
   try {
     return decodeURIComponent(href);
@@ -514,7 +514,7 @@ async function exportPresentation(kind: ExportKind, path = state.path) {
 
 function insertVerse() {
   if (!state.path) {
-    notice("Åpne et notat og sett markøren der verset skal inn.");
+    notice("Åpne et manus og sett markøren der verset skal inn.");
     return;
   }
   if (state.mode === "preview") {

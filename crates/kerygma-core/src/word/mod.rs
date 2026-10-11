@@ -20,7 +20,7 @@ pub fn import_docx(data: &[u8], bibel: &Bibel, options: &ConvertOptions) -> Resu
     Ok(convert(&paragraphs, &bible, options))
 }
 
-/// Navnet på notatet en Word-fil blir til: "Påske  2019.docx" gir "Påske 2019".
+/// Navnet på manuset en Word-fil blir til: "Påske  2019.docx" gir "Påske 2019".
 pub fn note_name(file_name: &str) -> String {
     let stem = file_name
         .strip_suffix(".docx")
@@ -29,8 +29,8 @@ pub fn note_name(file_name: &str) -> String {
     stem.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// Navnene på notatene når flere Word-filer importeres samtidig. To filer med samme
-/// navn (fra forskjellige mapper) skal ikke bli samme notat: den andre blir "Navn 2".
+/// Navnene på manusene når flere Word-filer importeres samtidig. To filer med samme
+/// navn (fra forskjellige mapper) skal ikke bli samme manus: den andre blir "Navn 2".
 /// Store og små bokstaver regnes som like, siden filsystemet ofte gjør det.
 pub fn note_names<S: AsRef<str>>(file_names: &[S]) -> Vec<String> {
     let mut used = std::collections::HashSet::new();
@@ -53,7 +53,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn like_filnavn_blir_forskjellige_notater() {
+    fn like_filnavn_blir_forskjellige_manus() {
         let names = note_names(&["a/Preken.docx", "Preken.docx", "Annen.docx", "preken.DOCX", "Preken 2.docx"]
             .map(|path| path.rsplit('/').next().unwrap()));
         assert_eq!(names, ["Preken", "Preken 2", "Annen", "preken 3", "Preken 2 2"]);

@@ -1,4 +1,4 @@
-// Søk i alle notatene i vaulten (navn og innhold). Feltet ligger øverst i
+// Søk i alle manusene i vaulten (navn og innhold). Feltet ligger øverst i
 // sidefeltet; når det står noe i det, vises treffene i stedet for treet.
 import { api, errorMessage, folderOf, type SearchResult } from "./api.ts";
 
@@ -17,7 +17,7 @@ export class SearchView {
     private input: HTMLInputElement,
     private results: HTMLElement,
     private tree: HTMLElement,
-    /** Åpner notatet, og går til linja hvis den er oppgitt. */
+    /** Åpner manuset, og går til linja hvis den er oppgitt. */
     private open: (path: string, line?: number) => void,
   ) {
     input.addEventListener("input", () => this.schedule());
@@ -110,7 +110,7 @@ export class SearchView {
     const count = document.createElement("div");
     count.className = "search-count";
     count.textContent =
-      found.length === 0 ? "Ingen treff" : found.length === 1 ? "1 notat" : `${found.length} notater`;
+      found.length === 0 ? "Ingen treff" : found.length === 1 ? "1 manus" : `${found.length} manus`;
     list.append(count);
 
     for (const result of found) {

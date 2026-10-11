@@ -21,24 +21,24 @@ Bibeloversettelsene (Norsk Bibel 88/07, Bibel 2024 og King James) følger med pr
 
 Første gang du starter Kerygma, trykker du **Åpne mappe …** og velger mappa der manusene dine ligger (eller skal ligge). Har du en vault fra Obsidian, velger du den. Neste gang åpnes den samme mappa av seg selv. Vil du bytte mappe senere, trykker du på mappeikonet nede i sidefeltet.
 
-Til venstre ser du mappene og notatene. Klikk på et notat for å åpne det. Klikk på en mappe for å folde den ut eller inn.
+Til venstre ser du mappene og manusene. Klikk på et manus for å åpne det. Klikk på en mappe for å folde den ut eller inn.
 
 Høyreklikk for flere valg:
 
 | På | Valg |
 |---|---|
-| en mappe | Ny note, Ny mappe, Importer Word-manus hit, Gi nytt navn, Slett |
-| et notat | Gi nytt navn, Slett, Lag presentasjon |
+| en mappe | Nytt manus, Ny mappe, Importer Word-manus hit, Gi nytt navn, Slett |
+| et manus | Gi nytt navn, Slett, Lag presentasjon |
 
 Det du sletter, havner i papirkurven.
 
-**Søk:** feltet øverst i sidefeltet (eller **Cmd/Ctrl + Shift + F**) søker i navnet og teksten i alle notatene. Skriver du flere ord, må alle finnes i notatet. Notater med treff i navnet kommer først, og under hvert notat står linjene som traff. Trykk på en linje for å åpne notatet der. **Esc** i søkefeltet viser mappene igjen.
+**Søk:** feltet øverst i sidefeltet (eller **Cmd/Ctrl + Shift + F**) søker i navnet og teksten i alle manusene. Skriver du flere ord, må alle finnes i manuset. Manus med treff i navnet kommer først, og under hvert manus står linjene som traff. Trykk på en linje for å åpne manuset der. **Esc** i søkefeltet viser mappene igjen.
 
-**Cmd/Ctrl + N** lager en ny note i mappa du står i. Skriv navnet med en gang, og trykk **Enter**. Du kan alltid gi notatet nytt navn ved å klikke på tittelen over teksten.
+**Cmd/Ctrl + N** lager et nytt manus i mappa du står i. Skriv navnet med en gang, og trykk **Enter**. Du kan alltid gi manuset nytt navn ved å klikke på tittelen over teksten.
 
 ## 3. Skrive et manus
 
-Et manus er et vanlig notat. Skriv som du pleier. Det du skriver, lagres av seg selv. Du trenger ikke å trykke på noe.
+Et manus er en vanlig markdown-fil. Skriv som du pleier. Det du skriver, lagres av seg selv. Du trenger ikke å trykke på noe.
 
 Presentasjonen henter ut tre ting fra manuset:
 
@@ -52,7 +52,7 @@ Presentasjonen henter ut tre ting fra manuset:
   Vanlige forkortelser virker også, som `(Sal 23,1)`, `(Joh 3,16)` og `(1. Kor 13,4-7)`.
 - **Sitater**: linjer som starter med `>`. Hvert sitat blir en egen slide.
 
-Resten av teksten, altså det du sier, blir ikke med i presentasjonen. Det blir heller ikke tekst mellom `%%` og `%%`, som du kan bruke til notater til deg selv.
+Resten av teksten, altså det du sier, blir ikke med i presentasjonen. Det blir heller ikke tekst mellom `%%` og `%%`, som du kan bruke til kommentarer til deg selv.
 
 Fet (`**tekst**`), kursiv (`*tekst*`), understreket (`<u>tekst</u>`), overstreket (`~~tekst~~`) og utheving (`==tekst==`) blir med i presentasjonen, også i bibelvers. Bilder setter du inn med `![[bilde.png]]`.
 
@@ -85,13 +85,13 @@ Verset settes inn som et sitat med referansen bak: `> tekst (referanse)`.
 1. Åpne manuset.
 2. Trykk **Cmd/Ctrl + Shift + M**, eller tavla øverst (*Lag presentasjon*).
 
-Det lages et nytt notat ved siden av manuset, med samme navn og ` - presentasjon` bak. Manuset blir ikke endret. Presentasjonen åpnes med en gang. Den vises ikke i lista til venstre (bare hvis manuset er borte); vil du til den igjen, lager du den på nytt fra manuset.
+Det lages en ny fil ved siden av manuset, med samme navn og ` - presentasjon` bak. Manuset blir ikke endret. Presentasjonen åpnes med en gang. Den vises ikke i lista til venstre (bare hvis manuset er borte); vil du til den igjen, lager du den på nytt fra manuset.
 
 - Hvert bibelvers får engelsk (King James) ved siden av, i to kolonner.
 - Lange vers deles over flere slides.
-- Har du endret manuset, gjør du det samme én gang til. Den gamle presentasjonen erstattes uten at Kerygma spør. Du kan også gjøre det fra presentasjonen selv. Finnes det et notat med samme navn som Kerygma ikke har laget, spør Kerygma før det overskrives.
+- Har du endret manuset, gjør du det samme én gang til. Den gamle presentasjonen erstattes uten at Kerygma spør. Du kan også gjøre det fra presentasjonen selv. Finnes det en fil med samme navn som Kerygma ikke har laget, spør Kerygma før det overskrives.
 
-Øverst i presentasjonen står en linje som `<!-- kerygma-presentasjon: Påske.md -->`. Den vises ikke i lesevisningen eller presentasjonen, men forteller Kerygma at notatet er en presentasjon, og hvilket manus den er laget fra. Ikke slett den. Uten den er notatet et vanlig notat.
+Øverst i presentasjonen står en linje som `<!-- kerygma-presentasjon: Påske.md -->`. Den vises ikke i lesevisningen eller presentasjonen, men forteller Kerygma at fila er en presentasjon, og hvilket manus den er laget fra. Ikke slett den. Uten den er fila et vanlig manus.
 
 Redigerer du presentasjonen, vises et gult varsel om at endringene blir overskrevet neste gang presentasjonen lages. Vil du endre noe varig, endrer du manuset. Knappen **Åpne manuset** i varselet tar deg dit.
 
@@ -139,9 +139,9 @@ Velg **Manus → Eksporter presentasjonen som PDF …**, **… som PowerPoint �
 1. Trykk på dokumentet med pil opp nede i sidefeltet, eller velg **Fil → Importer Word-manus …**. Vil du ha manusene i en bestemt mappe, høyreklikker du på mappa og velger **Importer Word-manus hit …**.
 2. Velg én eller flere `.docx`-filer.
 
-Hvert manus blir et notat. Bibelversene i manuset blir gjenkjent og gjort om til `> tekst (referanse)`, så de blir med i presentasjonen og får engelsk ved siden av.
+Hvert Word-manus blir et manus i Kerygma. Bibelversene i manuset blir gjenkjent og gjort om til `> tekst (referanse)`, så de blir med i presentasjonen og får engelsk ved siden av.
 
-Til slutt viser et vindu hvor mange bibelvers som ble funnet i hvert manus. Trykk på et navn for å åpne notatet.
+Til slutt viser et vindu hvor mange bibelvers som ble funnet i hvert manus. Trykk på et navn for å åpne manuset.
 
 **Sjekk versene med advarsel.** Gjenkjenningen er ikke alltid sikker. Vers den er usikker på, står i en gul boks som sier hvorfor:
 
@@ -150,7 +150,7 @@ Til slutt viser et vindu hvor mange bibelvers som ble funnet i hvert manus. Tryk
 > Du skal kalles med et nytt navn, som Herrens munn skal nevne. (Profeten Jesaja 62:2)
 ```
 
-1. Finn boksene ved å søke etter `[!warning|sjekk]` i notatet med **Cmd/Ctrl + F**.
+1. Finn boksene ved å søke etter `[!warning|sjekk]` i manuset med **Cmd/Ctrl + F**.
 2. Les verset og referansen. Rett det som er feil. Er det ikke et bibelvers, fjerner du `>` foran linjene og referansen bak.
 3. Slett den første linja, den som starter med `> [!warning|sjekk]`. Da forsvinner boksen.
 
@@ -172,7 +172,7 @@ Under **Presentasjoner og bibel** er innstillingene for mappa som er åpen:
 | Oversettelse | oversettelsen ved siden av: `kjv`, `nb88` eller `nb24` |
 | Standardoversettelse | oversettelsen du får når du setter inn vers uten prefiks |
 | Snarveier | korte navn som `ne` for flere oversettelser |
-| Mappe for importerte Word-manus | tom: mappa til notatet som er åpent. «Importer Word-manus hit» i treet går foran |
+| Mappe for importerte Word-manus | tom: mappa til manuset som er åpent. «Importer Word-manus hit» i treet går foran |
 
 Under **Utseende på presentasjonen** velger du tema for mappa som er åpen. Trykk på et av de fire bildene:
 
@@ -189,7 +189,7 @@ Hvert tema har sine egne skrifter. Vil du ha en annen skrift, velger du den unde
 
 | Tast | Gjør |
 |---|---|
-| Cmd/Ctrl + N | ny note |
+| Cmd/Ctrl + N | nytt manus |
 | Cmd/Ctrl + E | bytt mellom å skrive og å lese |
 | Cmd/Ctrl + Shift + M | lag presentasjon |
 | Cmd/Ctrl + Shift + P | vis presentasjon |
@@ -201,8 +201,8 @@ Hvert tema har sine egne skrifter. Vil du ha en annen skrift, velger du den unde
 | Cmd/Ctrl + Shift + X | overstreket |
 | Cmd/Ctrl + Shift + . | sitat |
 | Cmd/Ctrl + rullehjul | større eller mindre skrift |
-| Cmd/Ctrl + F | søk i notatet |
-| Cmd/Ctrl + Shift + F | søk i alle notatene |
+| Cmd/Ctrl + F | søk i manuset |
+| Cmd/Ctrl + Shift + F | søk i alle manusene |
 
 ## Hvis noe ikke virker
 

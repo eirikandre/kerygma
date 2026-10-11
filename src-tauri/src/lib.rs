@@ -57,8 +57,8 @@ fn item(app: &AppHandle, id: &str, text: &str, accelerator: &str) -> tauri::Resu
 
 fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let file = SubmenuBuilder::new(app, "Fil")
-        .item(&item(app, "new-note", "Ny note", "CmdOrCtrl+N")?)
-        .item(&item(app, "search", "Søk i alle notater …", "CmdOrCtrl+Shift+F")?)
+        .item(&item(app, "new-note", "Nytt manus", "CmdOrCtrl+N")?)
+        .item(&item(app, "search", "Søk i alle manus …", "CmdOrCtrl+Shift+F")?)
         .item(&item(app, "open-vault", "Åpne mappe …", "")?)
         .item(&item(app, "import-word", "Importer Word-manus …", "")?)
         .separator()

@@ -19,7 +19,7 @@ pub struct Settings {
     pub default_translation: String,
     /// Snarveier som "ne:joh3:16", skrevet som `BIBEL_ALIAS`.
     pub aliases: String,
-    /// Hvor importerte Word-manus legges. Tom: mappa til notatet som er åpent.
+    /// Hvor importerte Word-manus legges. Tom: mappa til manuset som er åpent.
     pub import_folder: String,
     /// Temaet presentasjonen vises med (id fra `ui/src/slideThemes.ts`).
     pub slide_theme: String,

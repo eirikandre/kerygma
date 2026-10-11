@@ -21,7 +21,7 @@ pub struct PresentationPaths {
     pub from_presentation: bool,
 }
 
-/// Stiene for en note. Er noten selv en presentasjon, er manuset fila ved siden av.
+/// Stiene for en fil. Er fila selv en presentasjon, er manuset fila ved siden av.
 pub fn presentation_paths(note: &str, suffix: &str) -> PresentationPaths {
     let trimmed_suffix = suffix.trim();
     let (folder, file) = match note.rfind('/') {
@@ -73,7 +73,7 @@ fn with_marker(slides: &str, source: &str) -> String {
     format!("{marker}\n\n{slides}")
 }
 
-/// Stiene når noten kan være en presentasjon: har den markøren, er manuset fila
+/// Stiene når fila kan være en presentasjon: har den markøren, er manuset fila
 /// markøren peker på (uansett hva presentasjonen heter). Ellers som `presentation_paths`.
 pub fn presentation_paths_for(note: &str, content: &str, suffix: &str) -> PresentationPaths {
     match presentation_source(content) {

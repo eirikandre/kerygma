@@ -78,7 +78,7 @@ function showReport(imported: ImportedFile[], openNote: (path: string) => Promis
     warnings += file.uncertain;
     item.append(`: ${file.quotes} ${file.quotes === 1 ? "bibelsitat" : "bibelsitater"}` + (file.uncertain > 0 ? `, ${file.uncertain} med advarsel` : ""));
     if (file.unmatched.length > 0) {
-      // Disse er ikke merket i notatet, siden de står midt i teksten.
+      // Disse er ikke merket i manuset, siden de står midt i teksten.
       const small = document.createElement("small");
       small.textContent = `Referanser uten sitat: ${file.unmatched.join(", ")}`;
       item.append(document.createElement("br"), small);
@@ -92,10 +92,10 @@ function showReport(imported: ImportedFile[], openNote: (path: string) => Promis
     help.className = "import-help";
     help.innerHTML = `
       <h3>Sjekke sitatene med advarsel</h3>
-      <p>Sitatene verktøyet er usikre på, står i en gul boks i notatet. Øverst i boksen står det hvorfor,
+      <p>Sitatene verktøyet er usikre på, står i en gul boks i manuset. Øverst i boksen står det hvorfor,
         for eksempel at verset ble funnet med søk fordi manuset ikke hadde referanse.</p>
       <ol>
-        <li>Finn boksene ved å søke etter <code>[!warning|sjekk]</code> i notatet med Cmd/Ctrl + F.</li>
+        <li>Finn boksene ved å søke etter <code>[!warning|sjekk]</code> i manuset med Cmd/Ctrl + F.</li>
         <li>Les sitatet og referansen i parentes. Rett det som er feil. Er det ikke et bibelsitat,
           fjern &gt; foran linjene og referansen bak.</li>
         <li>Slett den første linja: <code>&gt; [!warning|sjekk] …</code>. Da blir resten et vanlig sitat, og boksen forsvinner.</li>

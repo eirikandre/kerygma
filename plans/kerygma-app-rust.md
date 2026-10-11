@@ -139,10 +139,10 @@ bibel-core = { git = "ssh://git@github.com/eirikandre/bible.git", rev = "9012cdd
 - Treet viser mapper og filer sortert med mapper først, alfabetisk og uten hensyn til store og små bokstaver. Skjul alt som starter med `.` (også `.obsidian`). Vis `.md` uten filendelse. Bilder og andre filer vises med filendelse og grå.
 - Mapper kan foldes ut og inn. Hvilke som er åpne, huskes per vault.
 - Høyreklikkmeny:
-  - på en mappe: *Ny note*, *Ny mappe*, *Gi nytt navn*, *Slett*
+  - på en mappe: *Nytt manus*, *Ny mappe*, *Gi nytt navn*, *Slett*
   - på en fil: *Gi nytt navn*, *Slett*, *Lag presentasjon*
   - *Slett* legger fila i papirkurven (`trash`), etter at brukeren har bekreftet.
-- *Ny note* lager `Uten navn.md` (`Uten navn 1.md` osv.) og åpner fila med navnet markert for redigering.
+- *Nytt manus* lager `Uten navn.md` (`Uten navn 1.md` osv.) og åpner fila med navnet markert for redigering.
 - Endringer utenfra (Obsidian, Finder, Word-import) fanges opp med `notify` og sendes til grensesnittet som en hendelse (`vault-changed`). Treet bygges da på nytt. Er den åpne fila endret utenfra og ikke i editoren, lastes den på nytt.
 - Alle stier mellom grensesnitt og Rust er relative til vault-roten og bruker `/`. Rust avviser stier som går ut av vaulten (`..`, absolutte stier).
 
@@ -166,9 +166,9 @@ Bruk comrak med `table`, `strikethrough`, `tasklist`, `autolink`, `footnotes` og
 | `> [!type] Tittel` | callout: `<div class="callout" data-callout="type">` med tittel. Det holder med enkel styling. |
 | `![[bilde.png]]`, `![[bilde.png\|400]]` | `<span class="internal-embed image-embed"><img src="…" width="400"></span>`. Samme DOM som Obsidian, så CSS-en for bilder i `slides.css` treffer. |
 | `![alt](sti.png)` | `<img>` med stien gjort om (se under) |
-| `[[Notat]]`, `[[Notat\|tekst]]` | lenke som åpner notatet i appen |
+| `[[Manus]]`, `[[Manus\|tekst]]` | lenke som åpner manuset i appen |
 
-**Bildestier:** `![[navn.png]]` slås opp som i Obsidian. Først prøves stien relativt til vault-roten, så relativt til mappa notatet ligger i, og til slutt første fil i vaulten med det filnavnet. Relative stier i `![](…)` er relative til notatet. `src` blir en URL via Tauris asset-protokoll (`convertFileSrc` i grensesnittet, eller `asset://localhost/<absolutt sti>` fra Rust). Tillat vault-mappa med `app.asset_protocol_scope().allow_directory(vault, true)` når vaulten åpnes, og slå på `app.security.assetProtocol.enable` i `tauri.conf.json`.
+**Bildestier:** `![[navn.png]]` slås opp som i Obsidian. Først prøves stien relativt til vault-roten, så relativt til mappa fila ligger i, og til slutt første fil i vaulten med det filnavnet. Relative stier i `![](…)` er relative til fila. `src` blir en URL via Tauris asset-protokoll (`convertFileSrc` i grensesnittet, eller `asset://localhost/<absolutt sti>` fra Rust). Tillat vault-mappa med `app.asset_protocol_scope().allow_directory(vault, true)` når vaulten åpnes, og slå på `app.security.assetProtocol.enable` i `tauri.conf.json`.
 
 ### 3. Lag presentasjon (Cmd/Ctrl + Shift + M)
 
@@ -180,13 +180,13 @@ Skriv `extract.rs` etter `extract.ts` med alle reglene og alle testene i `test/e
 - Vers som står alene, får oversettelsen fra innstillingene ved siden av (`lookUpTranslations` + `loneVerseReferences`).
 - Lange vers og sitater deles over flere slides etter `maxChars` (standard 350). Kolonner får `COLUMN_SHARE` = 0,6 av grensen. Det deles helst ved versnummer, så ved setning, så ved ord. Fet og kursiv lukkes og åpnes igjen over delingen. I kolonner blir markdown til `<strong>`/`<em>`/`<mark>`, og versnumre blir `<sup>`.
 - `[!warning|sjekk]`-tittelen fra Word-importen fjernes, og det samme gjelder `>` og `[!type]`.
-- Bilder (`![[x.png]]` med bildeendelse og `![](…)`) blir egne slides i rekkefølge med teksten rundt. `![[Notat]]` tas ikke med.
+- Bilder (`![[x.png]]` med bildeendelse og `![](…)`) blir egne slides i rekkefølge med teksten rundt. `![[Manus]]` tas ikke med.
 
 Flyten (fra `createSlideCopy` i `main.ts`):
 
 1. Ta innholdet fra editoren hvis fila er åpen (ulagrede endringer skal med), ellers fra disk.
 2. Presentasjonen heter `<navn><suffix>.md` (suffix standard `" - presentasjon"`) og legges i samme mappe som manuset, så relative bildestier virker.
-3. Kjøres kommandoen fra en presentasjon, lages den på nytt fra manuset ved siden av. Finnes ikke manuset, vises en melding. Presentasjonen merkes med `<!-- kerygma-presentasjon: <manus>.md -->` (etter frontmatter), og markøren avgjør om noten er en presentasjon og hvilket manus den er laget fra; uten markør avgjør navnet, som i pluginen.
+3. Kjøres kommandoen fra en presentasjon, lages den på nytt fra manuset ved siden av. Finnes ikke manuset, vises en melding. Presentasjonen merkes med `<!-- kerygma-presentasjon: <manus>.md -->` (etter frontmatter), og markøren avgjør om fila er en presentasjon og hvilket manus den er laget fra; uten markør avgjør navnet, som i pluginen.
 4. Finnes presentasjonen fra før og har markøren, erstattes den uten å spørre (redigering i den gir et varsel om at endringer overskrives). Finnes en fil med navnet uten markøren, spør «"<sti>" finnes allerede. Vil du overskrive den?» med knappene *Avbryt* og *Overskriv*.
 5. Går oversettelsen ikke (biblene er ikke lastet, ukjent oversettelse), lages presentasjonen uten, og det vises én melding.
 6. Melding: «Presentasjon laget: <navn>». Åpne den hvis *Åpne presentasjonen* er på.
@@ -206,7 +206,7 @@ Gjør det samme som Obsidians Slides (se `obsidian.asar`: den deler markdown-AST
    ```
 3. Last `reveal.js/dist/reveal.css`, temaet `reveal.js/dist/theme/black.css` og så `slides.css`, i den rekkefølgen. Start med `new Reveal(el, { embedded: true, controlsTutorial: false, overview: false, hash: false })` og `initialize()`. Bruk 960 × 700, som er standard.
 4. Piltaster, mellomrom og PageUp/PageDown (fjernkontroller for presentasjon) blar. Esc avslutter, går ut av fullskjerm og fjerner overlegget (`deck.destroy()`).
-5. «Vis presentasjon» vises bare i noter med markøren. I andre noter gir hurtigtasten en melding om å lage presentasjonen først.
+5. «Vis presentasjon» vises bare i filer med markøren. I andre filer gir hurtigtasten en melding om å lage presentasjonen først.
 
 ### 5. Sett inn bibelvers (Cmd/Ctrl + Shift + B)
 
@@ -226,7 +226,7 @@ Port `word-to-markdown/src/` til `word/` med testene i `word-to-markdown/test/co
 - `align.rs`: Smith-Waterman på ord (MATCH 2, SIMILAR 1, MISMATCH −1, GAP −1). Ord som er like med én bokstavs forskjell, regnes som «like».
 - `bible_text.rs`: `trait BibleText { translations, book_id, verse, reference, search }`, implementert med `bibel_core` med oversettelsene `["nb88", "nb24"]`.
 - `convert.rs`: hele logikken for referanser, `V1`/`vers 7`, kapittel fra overskrifter, søk etter vers uten referanse, `[!warning|sjekk]`-advarslene og rapporten (`ConvertResult`: markdown, funne sitater, referanser uten sitat).
-- Flyt: velg én eller flere `.docx` (dialog). Filene legges i *Mappe for importerte Word-manus*, eller i mappa til fila som er åpen. Spør før en eksisterende fil overskrives. Til slutt vises en rapport per fil: lenke til notatet, antall sitater, hva som bør sjekkes og feil. Er det bare én fil, åpnes den.
+- Flyt: velg én eller flere `.docx` (dialog). Filene legges i *Mappe for importerte Word-manus*, eller i mappa til fila som er åpen. Spør før en eksisterende fil overskrives. Til slutt vises en rapport per fil: lenke til manuset, antall sitater, hva som bør sjekkes og feil. Er det bare én fil, åpnes den.
 
 ### 7. Innstillinger
 
@@ -249,7 +249,7 @@ Beskrivelsene står i `SlideCreatorSettingTab` i `src/main.ts` og kan kopieres. 
 
 | Tast | Gjør |
 |---|---|
-| Cmd/Ctrl + N | Ny note i mappa til fila som er åpen |
+| Cmd/Ctrl + N | Nytt manus i mappa til fila som er åpen |
 | Cmd/Ctrl + E | Bytt mellom redigering og lesevisning |
 | Cmd/Ctrl + Shift + M | Lag presentasjon av manus |
 | Cmd/Ctrl + Shift + P | Vis presentasjon |
@@ -328,7 +328,7 @@ Hvert steg skal være ferdig, med tester som passerer, før det neste startes.
 
 ## Senere (ikke i første versjon)
 
-- Vise presentasjonen i et eget vindu på projektoren, med notater og neste slide på egen skjerm (Tauri `WebviewWindow` på valgt skjerm).
+- Vise presentasjonen i et eget vindu på projektoren, med manus og neste slide på egen skjerm (Tauri `WebviewWindow` på valgt skjerm).
 - Søk i hele vaulten og hurtigåpning (Cmd/Ctrl + O).
 - Automatisk oversettelse av sitater med DeepL (se `../obsidian-slide-creator/planer/oversette-sitater.md`; bruk `reqwest` i Rust i stedet for `requestUrl`).
 - Eksportere presentasjonen til PDF.
