@@ -58,24 +58,52 @@ impl Bibel {
         Ok(Bibel { files: leaked, registry, config: None })
     }
 
-    /// Bruker innstillingene. Er de ugyldige, beholdes de gamle.
-    pub fn configure(&mut self, config: &BibelConfig) -> Result<(), String> {
-        if self.config.as_ref() != Some(config) {
-            *self = self.configured(config)?;
+    /// Bruker innstillingene, og gir meldingene fra [`Bibel::configured`]. Er de ugyldige,
+    /// beholdes de gamle.
+    pub fn configure(&mut self, config: &BibelConfig) -> Result<Vec<String>, String> {
+        if self.config.as_ref() == Some(config) {
+            return Ok(Vec::new());
         }
-        Ok(())
+        let (bibel, notes) = self.configured(config)?;
+        *self = bibel;
+        Ok(notes)
     }
 
     /// En ny `Bibel` med de samme oversettelsene (dataene deles) og innstillingene.
     /// Appen bytter ut hele `Bibel`-en, så oppslag som pågår, bruker de gamle innstillingene.
-    pub fn configured(&self, config: &BibelConfig) -> Result<Bibel, String> {
+    ///
+    /// Oversettelser som ikke er installert, er ikke en feil: innstillingene for en vault kan
+    /// vise til oversettelser som bare finnes i noen versjoner av appen (`bibler/` ved bygging).
+    /// En standardoversettelse som mangler, gir den første som er installert, og snarveier til
+    /// oversettelser som mangler, hoppes over. Meldingene sier hva som er hoppet over.
+    /// Ugyldige snarveier (feil skrivemåte) er fortsatt en feil.
+    pub fn configured(&self, config: &BibelConfig) -> Result<(Bibel, Vec<String>), String> {
         let mut registry = Registry::parse(&self.files).map_err(|e| format!("ugyldig datasett: {e}"))?;
+        let installed = registry.ids();
+        let mut notes = Vec::new();
         let default = config.default_translation.trim();
         if !default.is_empty() {
-            registry.set_default(default)?;
+            if installed.contains(&default) {
+                registry.set_default(default)?;
+            } else {
+                let used = registry.default_bible().id();
+                notes.push(format!("Standardoversettelsen «{default}» er ikke installert. Bruker «{used}»."));
+            }
         }
-        registry.set_aliases(config.aliases.trim())?;
-        Ok(Bibel { files: self.files.clone(), registry, config: Some(config.clone()) })
+        let mut aliases = Vec::new();
+        for entry in config.aliases.split(',').map(str::trim).filter(|e| !e.is_empty()) {
+            let missing: Vec<&str> = entry
+                .split_once('=')
+                .map(|(_, targets)| targets.split('+').map(str::trim).filter(|t| !installed.contains(t)).collect())
+                .unwrap_or_default();
+            if missing.is_empty() {
+                aliases.push(entry);
+            } else {
+                notes.push(format!("Snarveien «{entry}» er hoppet over: {} er ikke installert.", missing.join(", ")));
+            }
+        }
+        registry.set_aliases(&aliases.join(","))?;
+        Ok((Bibel { files: self.files.clone(), registry, config: Some(config.clone()) }, notes))
     }
 
     /// Innstillingene som er i bruk, hvis de er satt.
@@ -84,7 +112,7 @@ impl Bibel {
     }
 
     /// Setter bare snarveiene. Er de ugyldige, beholdes de gamle.
-    pub fn set_aliases(&mut self, aliases: &str) -> Result<(), String> {
+    pub fn set_aliases(&mut self, aliases: &str) -> Result<Vec<String>, String> {
         let default = self.config.as_ref().map(|c| c.default_translation.clone()).unwrap_or_default();
         self.configure(&BibelConfig { default_translation: default, aliases: aliases.to_string() })
     }

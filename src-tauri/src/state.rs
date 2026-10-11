@@ -85,16 +85,17 @@ impl AppState {
     }
 
     /// Bruker innstillingene på biblene, hvis de er lastet. Registeret bygges uten lås,
-    /// og byttes inn etterpå.
-    pub fn configure_bible(&self, settings: &Settings) -> Result<(), String> {
-        let BibleState::Ready(bibel) = self.bible() else { return Ok(()) };
+    /// og byttes inn etterpå. Gir meldinger om oversettelser som ikke er installert
+    /// (`Bibel::configured`); en feil betyr at innstillingene er ugyldige.
+    pub fn configure_bible(&self, settings: &Settings) -> Result<Vec<String>, String> {
+        let BibleState::Ready(bibel) = self.bible() else { return Ok(Vec::new()) };
         let config = BibelConfig { default_translation: settings.default_translation.clone(), aliases: settings.aliases.clone() };
         if bibel.config() == Some(&config) {
-            return Ok(());
+            return Ok(Vec::new());
         }
-        let configured = bibel.configured(&config).map_err(|e| format!("Innstillingene for bibel: {e}"))?;
+        let (configured, notes) = bibel.configured(&config).map_err(|e| format!("Innstillingene for bibel: {e}"))?;
         self.set_bible(BibleState::Ready(Arc::new(configured)));
-        Ok(())
+        Ok(notes)
     }
 }
 

@@ -84,6 +84,7 @@ fn parse_options(args: &[String]) -> Result<Options, String> {
 
 fn load_bibel(dir: &Path, settings: &Settings) -> Result<Bibel, String> {
     let mut bibel = Bibel::load_dir(dir)?;
+    // Oversettelser som ikke er installert, hoppes over uten melding, som i appen.
     bibel.configure(&BibelConfig {
         default_translation: settings.default_translation.clone(),
         aliases: settings.aliases.clone(),

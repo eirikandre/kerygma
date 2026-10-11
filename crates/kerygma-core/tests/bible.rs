@@ -40,14 +40,22 @@ fn soker() {
 }
 
 #[test]
-fn avviser_ugyldige_innstillinger_uten_a_miste_de_gamle() {
+fn oversettelser_som_ikke_er_installert_hoppes_over_med_en_melding() {
     let Some(mut b) = common::bibel() else { return };
-    let error = b
-        .configure(&BibelConfig { default_translation: "finnesikke".to_string(), aliases: String::new() })
-        .unwrap_err();
-    assert!(error.contains("ukjent oversettelse"), "{error}");
-    let error = b.set_aliases("x=finnesikke").unwrap_err();
-    assert!(error.contains("finnesikke"), "{error}");
+    let notes = b
+        .configure(&BibelConfig { default_translation: "finnesikke".to_string(), aliases: "e=kjv,x=finnesikke".to_string() })
+        .unwrap();
+    assert_eq!(notes.len(), 2, "{notes:?}");
+    assert!(notes[0].contains("«finnesikke» er ikke installert"), "{notes:?}");
+    assert!(notes[1].contains("«x=finnesikke»"), "{notes:?}");
+    assert_eq!(b.run(&["e:joh3:16"]).code, 0);
+    assert_ne!(b.run(&["x:joh3:16"]).code, 0);
+}
+
+#[test]
+fn ugyldige_snarveier_avvises_uten_a_miste_de_gamle() {
+    let Some(mut b) = common::bibel() else { return };
+    assert!(b.set_aliases("ne").is_err());
     assert_eq!(b.run(&["ne:joh3:16"]).code, 0);
 }
 

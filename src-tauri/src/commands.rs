@@ -315,7 +315,9 @@ pub fn set_settings(state: State<'_, AppState>, settings: Settings) -> Result<Ve
             open.workspace.settings = settings.clone();
         }
     }
-    Ok(state.configure_bible(&settings).err().into_iter().collect())
+    // Meldinger om oversettelser som ikke er installert, vises når brukeren lagrer,
+    // men ikke ved oppstart: en vault kan vise til oversettelser denne versjonen ikke har.
+    Ok(state.configure_bible(&settings).unwrap_or_else(|error| vec![error]))
 }
 
 #[derive(Serialize, specta::Type)]
