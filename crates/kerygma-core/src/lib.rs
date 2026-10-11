@@ -6,6 +6,7 @@ pub mod extract;
 pub mod markdown;
 pub mod presentation;
 pub mod reference;
+pub mod search;
 pub mod settings;
 pub mod vault;
 pub mod verse_query;

@@ -4,7 +4,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
-import { EditorState, Transaction, type Extension } from "@codemirror/state";
+import { EditorSelection, EditorState, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, drawSelection, keymap, placeholder } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, toggleMark } from "./format.ts";
@@ -94,6 +94,22 @@ export class Editor {
   }
 
   focus() {
+    this.view.focus();
+  }
+
+  /** Går til linja (fra 1), markerer det første søkeordet på den og ruller den midt i vinduet. */
+  revealLine(line: number, terms: string[] = []) {
+    const { doc } = this.view.state;
+    const target = doc.line(Math.min(Math.max(line, 1), doc.lines));
+    const lower = target.text.normalize("NFC").toLowerCase();
+    const hits = terms.map((term) => ({ at: lower.indexOf(term), term })).filter((hit) => hit.at >= 0);
+    const first = hits.sort((a, b) => a.at - b.at)[0];
+    // Lengden kan endres av normalisering; da settes bare markøren først på linja.
+    const exact = first && lower.length === target.length;
+    const selection = exact
+      ? EditorSelection.range(target.from + first.at, target.from + first.at + first.term.length)
+      : EditorSelection.cursor(target.from);
+    this.view.dispatch({ selection, effects: EditorView.scrollIntoView(selection.from, { y: "center" }) });
     this.view.focus();
   }
 

@@ -7,9 +7,10 @@ import { loadAppearance, onAppearanceChange, zoomWithWheel } from "./appearance.
 import { confirmDelete, confirmOverwrite, notice } from "./dialogs.ts";
 import { Editor } from "./editor.ts";
 import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, headingLevel, setHeading, toggleMark, type Mark } from "./format.ts";
-import { type IconName, initTooltips, setIcon } from "./icons.ts";
+import { type IconName, icon, initTooltips, setIcon } from "./icons.ts";
 import { importWord } from "./importReport.ts";
 import { present } from "./present.ts";
+import { SearchView, searchTerms } from "./search.ts";
 import { openSettings } from "./settings.ts";
 import { TreeView } from "./tree.ts";
 import { openVerseModal } from "./verseModal.ts";
@@ -55,6 +56,12 @@ onAppearanceChange(() => editor.view.requestMeasure());
 zoomWithWheel([$("editor"), $("preview")]);
 void loadAppearance();
 
+// Søk i alle notatene. Et treff åpner notatet og går til linja.
+$("search-icon").innerHTML = icon("search");
+const search = new SearchView($<HTMLInputElement>("search"), $("search-results"), $("tree"), (path, line) => {
+  void run(() => openNoteAt(path, line));
+});
+
 const tree = new TreeView($("tree"), {
   open: (path) => void run(() => openNote(path)),
   newNote: (folder) => void run(() => newNote(folder)),
@@ -86,6 +93,8 @@ async function openVault(path?: string) {
   closeNote();
   showTree(result);
   $("vault-name").textContent = result.name;
+  $("search-box").hidden = false;
+  search.clear();
   $("empty-text").textContent = "Velg et notat i treet, eller lag et nytt med Cmd/Ctrl + N.";
   $("empty-open").hidden = true;
 }
@@ -131,6 +140,17 @@ async function openNote(path: string) {
   tree.setActive(path);
   await showMode();
   if (state.mode === "edit") editor.focus();
+}
+
+/** Åpner notatet fra et søketreff, i redigering, og går til linja med treffet. */
+async function openNoteAt(path: string, line?: number) {
+  await openNote(path);
+  if (line === undefined || state.path !== path) return;
+  if (state.mode === "preview") {
+    state.mode = "edit";
+    await showMode();
+  }
+  editor.revealLine(line, searchTerms($<HTMLInputElement>("search").value));
 }
 
 function closeNote() {
@@ -332,6 +352,10 @@ const commands: Record<string, () => void | Promise<void>> = {
   "create-presentation": () => createPresentation(),
   "show-presentation": () => showPresentation(),
   "insert-verse": () => insertVerse(),
+  search: () => {
+    if (state.vaultPath) search.focus();
+    else notice("Åpne en mappe først.");
+  },
 };
 
 // På macOS kan både menyen og grensesnittet få samme hurtigtast; det andre kallet ignoreres.
@@ -353,6 +377,7 @@ const SHORTCUTS: Array<{ key: string; shift: boolean; id: string }> = [
   { key: "p", shift: true, id: "show-presentation" },
   { key: "b", shift: true, id: "insert-verse" },
   { key: ",", shift: false, id: "settings" },
+  { key: "f", shift: true, id: "search" },
 ];
 
 document.addEventListener("keydown", (event) => {
@@ -391,6 +416,7 @@ void listen<string>("menu", (event) => command(event.payload));
 
 /** Filer endret utenfra (Obsidian, Finder, Word-import). */
 void listen<string[]>("vault-changed", (event) => {
+  search.refresh();
   void run(async () => {
     await refreshTree();
     const path = state.path;

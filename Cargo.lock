@@ -1788,6 +1788,7 @@ dependencies = [
  "serde",
  "serde_json",
  "trash",
+ "unicode-normalization",
  "zip",
 ]
 

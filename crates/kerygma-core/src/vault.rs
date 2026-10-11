@@ -92,6 +92,29 @@ impl Vault {
         Some(parts.join("/"))
     }
 
+    /// Alle notater (`.md`) i vaulten, uten skjulte mapper, sortert etter sti.
+    pub fn notes(&self) -> Vec<String> {
+        let mut notes = Vec::new();
+        let mut stack = vec![(self.root.clone(), String::new())];
+        while let Some((dir, prefix)) = stack.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+            for entry in entries.filter_map(Result::ok) {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if hidden(&name) {
+                    continue;
+                }
+                let path = join(&prefix, &name);
+                if entry.path().is_dir() {
+                    stack.push((entry.path(), path));
+                } else if name.ends_with(".md") {
+                    notes.push(path);
+                }
+            }
+        }
+        notes.sort();
+        notes
+    }
+
     pub fn tree(&self) -> Tree {
         Tree {
             name: self.root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),

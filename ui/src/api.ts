@@ -28,6 +28,18 @@ export interface Appearance {
   fontSize: number;
 }
 
+/** Et notat med treff i søket. */
+export interface SearchResult {
+  path: string;
+  name: string;
+  /** Alle søkeordene står i navnet. */
+  nameMatch: boolean;
+  /** De første linjene med treff (linjenummer fra 1). */
+  lines: Array<{ line: number; text: string }>;
+  /** Antall linjer med treff i hele notatet. */
+  total: number;
+}
+
 export type CreateResult =
   | { kind: "created"; path: string; warnings: string[]; open: boolean }
   | { kind: "exists"; path: string }
@@ -71,6 +83,7 @@ export const api = {
   createFolder: (parent: string, name: string) => invoke<string>("create_folder", { parent, name }),
   rename: (path: string, newName: string) => invoke<string>("rename", { path, newName }),
   delete: (path: string) => invoke<void>("delete", { path }),
+  search: (query: string) => invoke<SearchResult[]>("search", { query }),
   renderNote: (path: string, content: string) => invoke<string>("render_note", { path, content }),
   resolveLink: (target: string, from: string) => invoke<string | null>("resolve_link", { target, from }),
   createPresentation: (path: string, content: string | null, overwrite: boolean) =>

@@ -32,6 +32,8 @@ Høyreklikk for flere valg:
 
 Det du sletter, havner i papirkurven.
 
+**Søk:** feltet øverst i sidefeltet (eller **Cmd/Ctrl + Shift + F**) søker i navnet og teksten i alle notatene. Skriver du flere ord, må alle finnes i notatet. Notater med treff i navnet kommer først, og under hvert notat står linjene som traff. Trykk på en linje for å åpne notatet der. **Esc** i søkefeltet viser mappene igjen.
+
 **Cmd/Ctrl + N** lager en ny note i mappa du står i. Skriv navnet med en gang, og trykk **Enter**. Du kan alltid gi notatet nytt navn ved å klikke på tittelen over teksten.
 
 ## 3. Skrive et manus
@@ -153,6 +155,7 @@ Under **Presentasjoner og bibel** er innstillingene for mappa som er åpen:
 | Cmd/Ctrl + Shift + X | overstreket |
 | Cmd/Ctrl + rullehjul | større eller mindre skrift |
 | Cmd/Ctrl + F | søk i notatet |
+| Cmd/Ctrl + Shift + F | søk i alle notatene |
 
 ## Hvis noe ikke virker
 

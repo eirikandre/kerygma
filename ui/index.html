@@ -9,7 +9,13 @@
     <div id="app">
       <aside id="sidebar">
         <div id="vault-name"></div>
+        <div id="search-box" hidden>
+          <span id="search-icon"></span>
+          <input id="search" type="search" placeholder="Søk i alle notater" spellcheck="false" autocomplete="off"
+            aria-label="Søk i alle notater" data-tooltip="Søk i navn og innhold (Cmd/Ctrl + Shift + F)" />
+        </div>
         <div id="tree" role="tree"></div>
+        <div id="search-results" hidden></div>
         <footer id="sidebar-footer">
           <button id="open-vault" class="icon-button" type="button" data-icon="folder-open" data-tooltip="Åpne mappe"></button>
           <button id="settings-button" class="icon-button" type="button" data-icon="settings" data-tooltip="Innstillinger (Cmd/Ctrl + ,)"></button>

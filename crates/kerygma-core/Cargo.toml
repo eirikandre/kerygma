@@ -16,6 +16,7 @@ comrak = { version = "0.56.0", default-features = false }
 trash = "5.2.9"
 zip = { version = "9.0.1", default-features = false, features = ["deflate"] }
 quick-xml = "0.42.0"
+unicode-normalization = "0.1.25"
 
 [dev-dependencies]
 regex = "1"

@@ -145,7 +145,8 @@ export async function openSettings() {
   hotkeys.textContent =
     "Hurtigtaster: Cmd/Ctrl + Shift + M lager presentasjon, Cmd/Ctrl + Shift + P viser den, " +
     "Cmd/Ctrl + Shift + B setter inn bibelvers, Cmd/Ctrl + E bytter til lesevisning og Cmd/Ctrl + N lager en ny note. " +
-    "Cmd/Ctrl + B, I og U gir fet, kursiv og understreket tekst, og Cmd/Ctrl + Shift + X overstreket.";
+    "Cmd/Ctrl + B, I og U gir fet, kursiv og understreket tekst, og Cmd/Ctrl + Shift + X overstreket. " +
+    "Cmd/Ctrl + Shift + F søker i alle notatene.";
   modal.el.append(hotkeys);
 }
 

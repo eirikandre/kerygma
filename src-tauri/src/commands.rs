@@ -150,6 +150,13 @@ pub fn delete(state: State<AppState>, path: String) -> Result<()> {
     with_vault(&state, |open| open.vault.delete(&path))
 }
 
+/// Søk i navn og innhold i alle notatene.
+#[tauri::command(async)]
+pub fn search(state: State<'_, AppState>, query: String) -> Result<Vec<kerygma_core::search::SearchResult>> {
+    let vault = with_vault(&state, |open| Ok(open.vault.clone()))?;
+    Ok(kerygma_core::search::search(&vault, &query))
+}
+
 /// HTML til lesevisningen, med bildene løst opp.
 #[tauri::command]
 pub fn render_note(state: State<AppState>, path: String, content: String) -> Result<String> {
