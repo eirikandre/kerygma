@@ -4,10 +4,10 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
-import { EditorSelection, EditorState, Transaction, type Extension } from "@codemirror/state";
+import { EditorSelection, EditorState, Prec, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, drawSelection, keymap, placeholder } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
-import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, toggleMark, toggleQuote } from "./format.ts";
+import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, exitEmptyQuote, toggleMark, toggleQuote } from "./format.ts";
 
 /** Markdown med fargene fra styles.css, så det virker i både lyst og mørkt tema. */
 const highlightStyle = HighlightStyle.define([
@@ -49,6 +49,8 @@ export class Editor {
       search({ top: true }),
       highlightSelectionMatches(),
       markdown({ base: markdownLanguage, codeLanguages: languages }),
+      // Før Enter fra markdown(), som ellers fortsetter sitatet med en ny `>`.
+      Prec.highest(keymap.of([{ key: "Enter", run: exitEmptyQuote }])),
       syntaxHighlighting(highlightStyle),
       selectionTheme,
       EditorView.lineWrapping,

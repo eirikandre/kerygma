@@ -161,3 +161,28 @@ export function toggleQuote(view: EditorView) {
   view.dispatch({ changes });
   view.focus();
 }
+
+/**
+ * Enter på en tom sitatlinje (bare `>`) avslutter sitatet: `>` fjernes, og det
+ * blir en tom linje etter sitatet, så teksten som skrives ikke regnes med i det.
+ * Gir `false` ellers, så Enter fortsetter sitatet eller lista som vanlig.
+ */
+export function exitEmptyQuote(view: EditorView): boolean {
+  const { state } = view;
+  const range = state.selection.main;
+  if (state.selection.ranges.length > 1 || !range.empty) return false;
+  const line = state.doc.lineAt(range.head);
+  if (!/^\s*>[\s>]*$/.test(line.text) || range.head !== line.to) return false;
+  // Midt i et sitat er den tomme linja et skille mellom avsnitt i sitatet.
+  if (line.number < state.doc.lines && QUOTE.test(state.doc.line(line.number + 1).text)) return false;
+  const previous = line.number > 1 ? state.doc.line(line.number - 1).text : "";
+  // Står sitatet rett over, trengs en tom linje mellom; ellers holder det å tømme linja.
+  const insert = /[^\s>]/.test(previous) ? state.lineBreak : "";
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert },
+    selection: { anchor: line.from + insert.length },
+    scrollIntoView: true,
+    userEvent: "input",
+  });
+  return true;
+}
