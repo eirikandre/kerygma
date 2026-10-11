@@ -21,6 +21,8 @@ export class TreeView {
   private expanded = new Set<string>();
   private storageKey = "";
   private active?: string;
+  /** Mappa nye manus og mapper lages i: den som sist ble klikket, eller mappa til fila som sist ble klikket eller åpnet. */
+  private location = "";
   /** Feltet for nytt navn. Treet tegnes på nytt når filer endres, og feltet skal overleve det. */
   private renaming?: { path: string; input: HTMLInputElement };
   /** Fila eller mappa som dras, og mappa den slippes i ("" er roten). */
@@ -45,6 +47,7 @@ export class TreeView {
   /** Hvilke mapper som er åpne, huskes per vault. */
   setVault(vaultPath: string) {
     this.storageKey = `kerygma.expanded:${vaultPath}`;
+    this.location = "";
     try {
       this.expanded = new Set(JSON.parse(localStorage.getItem(this.storageKey) ?? "[]"));
     } catch {
@@ -74,6 +77,21 @@ export class TreeView {
     return this.el.querySelector<HTMLElement>(`.tree-item[data-path="${CSS.escape(path)}"] .tree-label`);
   }
 
+  /** Mappa nye manus og mapper skal lages i. Roten hvis mappa ikke finnes lenger. */
+  get folder(): string {
+    return this.tree && findFolder(this.tree, this.location) ? this.location : "";
+  }
+
+  setLocation(folder: string) {
+    this.location = folder;
+  }
+
+  /** En fil eller mappe har fått ny sti; ligger stedet i den, følger det etter. */
+  moved(path: string, newPath: string) {
+    if (this.location === path) this.location = newPath;
+    else if (this.location.startsWith(`${path}/`)) this.location = newPath + this.location.slice(path.length);
+  }
+
   setActive(path: string | undefined) {
     this.active = path;
     if (path) for (const folder of ancestors(path)) this.expanded.add(folder);
@@ -83,6 +101,12 @@ export class TreeView {
 
   /** Lar brukeren skrive et nytt navn rett i treet. */
   startRename(path: string) {
+    const hidden = ancestors(path).filter((folder) => !this.expanded.has(folder));
+    if (hidden.length && this.tree) {
+      for (const folder of hidden) this.expanded.add(folder);
+      this.saveExpanded();
+      this.render(this.tree);
+    }
     const label = this.label(path);
     if (!label || this.renaming) return;
     const name = label.textContent ?? "";
@@ -231,6 +255,7 @@ export class TreeView {
       icon.textContent = open ? "▾" : "▸";
       row.setAttribute("aria-expanded", String(open));
       row.addEventListener("click", () => {
+        this.location = node.path;
         if (open) this.expanded.delete(node.path);
         else this.expanded.add(node.path);
         this.saveExpanded();
@@ -248,6 +273,7 @@ export class TreeView {
       if (open) li.append(this.list(node.children, depth + 1));
     } else {
       row.addEventListener("click", () => {
+        this.location = ancestors(node.path).at(-1) ?? "";
         if (node.kind === "Note") this.actions.open(node.path);
       });
       const items = [
@@ -287,6 +313,12 @@ function canMove(path: string, folder: string): boolean {
 function notDraggable(input: HTMLInputElement) {
   const row = input.closest<HTMLElement>(".tree-item");
   if (row) row.draggable = false;
+}
+
+/** Finnes mappa i treet? */
+function findFolder(node: Tree, path: string): boolean {
+  if (node.kind !== "Folder") return false;
+  return node.path === path || (path.startsWith(node.path) && node.children.some((child) => findFolder(child, path)));
 }
 
 /** Mappene en sti ligger i: "a/b/c.md" gir "a" og "a/b". */

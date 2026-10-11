@@ -115,13 +115,12 @@ button:hover {
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
 }
-#vault-name {
-  padding: 14px 14px 6px;
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+#sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 8px 8px 2px;
 }
 #tree {
   flex: 1;
@@ -281,17 +280,6 @@ button:hover {
   padding: 1px 4px;
   width: 100%;
 }
-#sidebar-footer {
-  display: flex;
-  gap: 6px;
-  padding: 8px;
-  border-top: 1px solid var(--border);
-}
-
-#settings-button {
-  margin-left: auto;
-}
-
 /* --- Ikonknapper og hover-tekst --- */
 .icon-button {
   display: inline-flex;

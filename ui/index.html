@@ -8,7 +8,10 @@
   <body>
     <div id="app">
       <aside id="sidebar">
-        <div id="vault-name"></div>
+        <div id="sidebar-header">
+          <button id="new-note" class="icon-button" type="button" data-icon="file-plus" data-tooltip="Nytt manus (Cmd/Ctrl + N)" hidden></button>
+          <button id="new-folder" class="icon-button" type="button" data-icon="folder-plus" data-tooltip="Ny mappe" hidden></button>
+        </div>
         <div id="search-box" hidden>
           <span id="search-icon"></span>
           <input id="search" type="search" placeholder="Søk i alle manus" spellcheck="false" autocomplete="off"
@@ -16,11 +19,6 @@
         </div>
         <div id="tree" role="tree"></div>
         <div id="search-results" hidden></div>
-        <footer id="sidebar-footer">
-          <button id="open-vault" class="icon-button" type="button" data-icon="folder-open" data-tooltip="Åpne mappe"></button>
-          <button id="import-word" class="icon-button" type="button" data-icon="file-up" data-tooltip="Importer Word-manus" hidden></button>
-          <button id="settings-button" class="icon-button" type="button" data-icon="settings" data-tooltip="Innstillinger (Cmd/Ctrl + ,)"></button>
-        </footer>
       </aside>
       <main id="main">
         <header id="toolbar" hidden>

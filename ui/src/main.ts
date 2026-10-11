@@ -133,9 +133,9 @@ async function openVault(path?: string) {
   tree.setVault(chosen);
   closeNote();
   showTree(result);
-  $("vault-name").textContent = result.name;
   $("search-box").hidden = false;
-  $("import-word").hidden = false;
+  $("new-note").hidden = false;
+  $("new-folder").hidden = false;
   search.clear();
   $("empty-text").textContent = "Velg et manus i treet, eller lag et nytt med Cmd/Ctrl + N.";
   $("empty-open").hidden = true;
@@ -238,6 +238,7 @@ async function openNote(path: string, mode?: Mode) {
   $("toolbar").hidden = false;
   $("empty").hidden = true;
   tree.setActive(path);
+  tree.setLocation(folderOf(path));
   await showMode();
   if (state.mode === "edit") editor.focus();
 }
@@ -334,7 +335,7 @@ function decodeLink(href: string): string {
 
 async function newNote(folder?: string) {
   if (!state.vaultPath) return;
-  const path = await api.createNote(folder ?? (state.path ? folderOf(state.path) : ""));
+  const path = await api.createNote(folder ?? tree.folder);
   await refreshTree();
   await openNote(path, "edit");
   startTitleRename();
@@ -357,6 +358,7 @@ async function movePath(path: string, folder: string) {
 
 /** Fila eller mappa har fått ny sti: følg etter med fila som er åpen. */
 async function moved(path: string, newPath: string) {
+  tree.moved(path, newPath);
   if (state.path === path) {
     state.path = newPath;
     $("title").textContent = basename(newPath);
@@ -563,6 +565,7 @@ async function importWordTo(folder: string, chosen: boolean) {
 const commands: Record<string, () => void | Promise<void>> = {
   "open-vault": () => openVault(),
   "new-note": () => newNote(),
+  "new-folder": () => newFolder(tree.folder),
   "import-word": () => importWordTo(state.path ? folderOf(state.path) : "", false),
   settings: () => openSettings(),
   "toggle-preview": () => togglePreview(),
@@ -643,10 +646,9 @@ $("format-quote").addEventListener("click", () => toggleQuote(editor.view));
 $<HTMLSelectElement>("heading").addEventListener("change", (event) => {
   setHeading(editor.view, Number((event.target as HTMLSelectElement).value));
 });
-$("open-vault").addEventListener("click", () => command("open-vault"));
-$("import-word").addEventListener("click", () => command("import-word"));
+$("new-note").addEventListener("click", () => command("new-note"));
+$("new-folder").addEventListener("click", () => command("new-folder"));
 $("empty-open").addEventListener("click", () => command("open-vault"));
-$("settings-button").addEventListener("click", () => command("settings"));
 $("title").addEventListener("click", () => startTitleRename());
 
 void listen<string>("menu", (event) => command(event.payload));
