@@ -7,7 +7,11 @@ import { confirmOverwrite, notice, openModal } from "./dialogs.ts";
  * Gjør valgte .docx-filer om til markdown med bibelsitatene som "> tekst (ref)".
  * Er det bare én fil, åpnes den.
  */
-export async function importWord(currentFolder: string, openNote: (path: string) => Promise<void>) {
+export async function importWord(
+  currentFolder: string,
+  openNote: (path: string) => Promise<void>,
+  folderChosen = false,
+) {
   const chosen = await openDialog({
     multiple: true,
     title: "Importer Word-manus",
@@ -16,7 +20,7 @@ export async function importWord(currentFolder: string, openNote: (path: string)
   const files = Array.isArray(chosen) ? chosen : typeof chosen === "string" ? [chosen] : [];
   if (files.length === 0) return;
 
-  const targets = await api.importTargets(files, currentFolder);
+  const targets = await api.importTargets(files, currentFolder, folderChosen);
   const skipped: ImportedFile[] = [];
   const requests: Array<{ file: string; path: string }> = [];
   for (const target of targets) {

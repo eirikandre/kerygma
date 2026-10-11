@@ -20,6 +20,11 @@ export interface Settings {
   defaultTranslation: string;
   aliases: string;
   importFolder: string;
+  /** Temaet presentasjonen vises med (slideThemes.ts). */
+  slideTheme: string;
+  /** Skrift i overskrifter og i sitater/bibelvers på slidene. Tom: temaets. */
+  headingFont: string;
+  quoteFont: string;
 }
 
 export type Theme = "system" | "light" | "dark";
@@ -44,7 +49,7 @@ export interface SearchResult {
 }
 
 export type CreateResult =
-  | { kind: "created"; path: string; warnings: string[]; open: boolean }
+  | { kind: "created"; path: string; warnings: string[] }
   | { kind: "exists"; path: string }
   | { kind: "missingManuscript"; path: string }
   | { kind: "isFolder"; path: string };
@@ -97,8 +102,9 @@ export const api = {
   getSettings: () => invoke<Settings>("get_settings"),
   setSettings: (settings: Settings) => invoke<string[]>("set_settings", { settings }),
   bibleStatus: () => invoke<BibleStatus>("bible_status"),
-  importTargets: (files: string[], currentFolder: string) =>
-    invoke<ImportTarget[]>("import_targets", { files, currentFolder }),
+  /** `folderChosen`: mappa er valgt i treet og går foran «Mappe for importerte Word-manus». */
+  importTargets: (files: string[], currentFolder: string, folderChosen: boolean) =>
+    invoke<ImportTarget[]>("import_targets", { files, currentFolder, folderChosen }),
   importWord: (files: Array<{ file: string; path: string }>) => invoke<ImportedFile[]>("import_word", { files }),
 };
 

@@ -7,7 +7,7 @@ import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/sea
 import { EditorSelection, EditorState, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, drawSelection, keymap, placeholder } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
-import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, toggleMark } from "./format.ts";
+import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, toggleMark, toggleQuote } from "./format.ts";
 
 /** Markdown med fargene fra styles.css, så det virker i både lyst og mørkt tema. */
 const highlightStyle = HighlightStyle.define([
@@ -58,6 +58,8 @@ export class Editor {
         { key: "Mod-i", run: (view) => (toggleMark(view, ITALIC), true) },
         { key: "Mod-u", run: (view) => (toggleMark(view, UNDERLINE), true) },
         { key: "Mod-Shift-x", run: (view) => (toggleMark(view, STRIKETHROUGH), true) },
+        // Shift + . gir «:» på norsk tastatur; CodeMirror faller tilbake på tasten, så det virker likevel.
+        { key: "Mod-Shift-.", run: (view) => (toggleQuote(view), true) },
         ...defaultKeymap,
         ...historyKeymap,
         ...searchKeymap,

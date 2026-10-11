@@ -5,10 +5,13 @@
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::sync::OnceLock;
 
 use serde::Serialize;
+
+use crate::presentation::presentation_paths_for;
 
 pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "avif"];
 
@@ -115,16 +118,37 @@ impl Vault {
         notes
     }
 
-    pub fn tree(&self) -> Tree {
+    /// Mappene og filene i vaulten. Presentasjoner (`suffix` i navnet eller markøren fra
+    /// «Lag presentasjon») vises ikke når manuset ligger ved siden av; de åpnes fra manuset.
+    pub fn tree(&self, suffix: &str) -> Tree {
         Tree {
             name: self.root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
             path: String::new(),
             kind: Kind::Folder,
-            children: self.children(&self.root, ""),
+            children: self.children(&self.root, "", suffix),
         }
     }
 
-    fn children(&self, dir: &Path, prefix: &str) -> Vec<Tree> {
+    /// Om noten er en presentasjon med manuset i samme mappe. Bare starten av fila
+    /// leses: markøren står øverst, etter en eventuell frontmatter.
+    fn is_presentation(&self, path: &str, suffix: &str) -> bool {
+        const HEAD: u64 = 16 * 1024;
+        let mut head = Vec::new();
+        let Ok(file) = std::fs::File::open(self.root.join(path)) else { return false };
+        if file.take(HEAD).read_to_end(&mut head).is_err() {
+            return false;
+        }
+        self.is_presentation_content(path, &String::from_utf8_lossy(&head), suffix)
+    }
+
+    /// Som `is_presentation`, når teksten (eller starten av den) allerede er lest.
+    /// Slike presentasjoner vises ikke i treet eller i søket.
+    pub fn is_presentation_content(&self, path: &str, content: &str, suffix: &str) -> bool {
+        let paths = presentation_paths_for(path, content, suffix);
+        paths.from_presentation && paths.manuscript != path && self.root.join(&paths.manuscript).is_file()
+    }
+
+    fn children(&self, dir: &Path, prefix: &str, suffix: &str) -> Vec<Tree> {
         let Ok(entries) = std::fs::read_dir(dir) else { return vec![] };
         let mut children: Vec<Tree> = entries
             .filter_map(Result::ok)
@@ -137,8 +161,11 @@ impl Vault {
                 let file_type = entry.file_type().ok()?;
                 let is_dir = file_type.is_dir() || (file_type.is_symlink() && entry.path().is_dir());
                 Some(if is_dir {
-                    Tree { name: file_name, children: self.children(&entry.path(), &path), path, kind: Kind::Folder }
+                    Tree { name: file_name, children: self.children(&entry.path(), &path, suffix), path, kind: Kind::Folder }
                 } else if let Some(name) = file_name.strip_suffix(".md") {
+                    if self.is_presentation(&path, suffix) {
+                        return None;
+                    }
                     Tree { name: name.to_string(), path, kind: Kind::Note, children: vec![] }
                 } else {
                     Tree { name: file_name, path, kind: Kind::File, children: vec![] }
@@ -383,10 +410,27 @@ mod tests {
     #[test]
     fn treet_har_mapper_forst_og_skjuler_punktum() {
         let (dir, vault) = temp_vault("tre");
-        let tree = vault.tree();
+        let tree = vault.tree(" - presentasjon");
         let names: Vec<(&str, Kind)> = tree.children.iter().map(|c| (c.name.as_str(), c.kind)).collect();
         assert_eq!(names, [("Prekener", Kind::Folder), ("A", Kind::Note), ("b", Kind::Note), ("logo.png", Kind::File)]);
         assert_eq!(tree.children[0].children[1].path, "Prekener/Påske.md");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn presentasjoner_med_manus_vises_ikke_i_treet() {
+        let (dir, vault) = temp_vault("presentasjoner");
+        let write = |name: &str, text: &str| std::fs::write(dir.join("Prekener").join(name), text).unwrap();
+        // Navnet sier at det er en presentasjon, og manuset finnes.
+        write("Påske - presentasjon.md", "# Påske");
+        // Markøren peker på manuset, selv om navnet er et annet.
+        write("Lysbilder.md", "---\ntags: [påske]\n---\n\n<!-- kerygma-presentasjon: Påske.md -->\n\n# Påske");
+        // Manuset finnes ikke: vises, så fila ikke blir borte.
+        write("Jul - presentasjon.md", "# Jul");
+        write("Gammel.md", "<!-- kerygma-presentasjon: Slettet.md -->");
+        let tree = vault.tree(" - presentasjon");
+        let names: Vec<&str> = tree.children[0].children.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["bilder", "Gammel", "Jul - presentasjon", "Påske"]);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

@@ -48,8 +48,9 @@ pub fn terms(query: &str) -> Vec<String> {
     query.nfc().collect::<String>().split_whitespace().map(str::to_lowercase).collect()
 }
 
-/// Søker i alle notatene i vaulten.
-pub fn search(vault: &Vault, query: &str) -> Vec<SearchResult> {
+/// Søker i alle notatene i vaulten. Presentasjoner med manuset ved siden av hoppes
+/// over, som i treet: treffene står i manuset.
+pub fn search(vault: &Vault, query: &str, suffix: &str) -> Vec<SearchResult> {
     let terms = terms(query);
     if terms.is_empty() {
         return vec![];
@@ -59,10 +60,13 @@ pub fn search(vault: &Vault, query: &str) -> Vec<SearchResult> {
         .into_iter()
         .filter_map(|path| {
             let content = vault.read_note(&path).ok()?;
+            if vault.is_presentation_content(&path, &content, suffix) {
+                return None;
+            }
             search_note(&path, &content, &terms)
         })
         .collect();
-    // Treff i navnet først, og blant dem det korteste navnet ("Påske" før "Påske - presentasjon").
+    // Treff i navnet først, og blant dem det korteste navnet ("Påske" før "Påske 2").
     // Ellers flest linjer med treff først.
     results.sort_by(|a, b| {
         b.name_match.cmp(&a.name_match).then_with(|| {
@@ -130,6 +134,9 @@ mod tests {
         std::fs::write(dir.join("Prekener/Påske.md"), "# Påske\n\nHan er oppstanden.\nTro og håp.\n").unwrap();
         std::fs::write(dir.join("Prekener/Jul.md"), "# Jul\n\nEt barn er født. Påske kommer senere.\n").unwrap();
         std::fs::write(dir.join("Prekener/Påske - presentasjon.md"), "# Påske\n").unwrap();
+        std::fs::write(dir.join("Prekener/Påske 2.md"), "Mer om påske.\n").unwrap();
+        // Manuset finnes ikke, så presentasjonen kommer med.
+        std::fs::write(dir.join("Prekener/Pinse - presentasjon.md"), "# Pinse og påske\n").unwrap();
         std::fs::write(dir.join("Notat.md"), "Ingenting her.\n").unwrap();
         std::fs::write(dir.join(".obsidian/påske.md"), "påske").unwrap();
         std::fs::write(dir.join("påske.txt"), "påske").unwrap();
@@ -139,9 +146,12 @@ mod tests {
     #[test]
     fn treff_i_navnet_kommer_forst_og_skjulte_filer_hoppes_over() {
         let (dir, vault) = temp_vault("navn");
-        let results = search(&vault, "PÅSKE");
+        let results = search(&vault, "PÅSKE", " - presentasjon");
         let paths: Vec<&str> = results.iter().map(|r| r.path.as_str()).collect();
-        assert_eq!(paths, ["Prekener/Påske.md", "Prekener/Påske - presentasjon.md", "Prekener/Jul.md"]);
+        assert_eq!(
+            paths,
+            ["Prekener/Påske.md", "Prekener/Påske 2.md", "Prekener/Jul.md", "Prekener/Pinse - presentasjon.md"]
+        );
         assert!(results[0].name_match);
         assert_eq!(results[0].lines, [LineMatch { line: 1, text: "# Påske".into() }]);
         assert_eq!(results[2].lines, [LineMatch { line: 3, text: "Et barn er født. Påske kommer senere.".into() }]);
@@ -151,13 +161,13 @@ mod tests {
     #[test]
     fn alle_ordene_ma_finnes_i_navn_eller_tekst() {
         let (dir, vault) = temp_vault("ord");
-        let results = search(&vault, "påske håp");
+        let results = search(&vault, "påske håp", " - presentasjon");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "Prekener/Påske.md");
         assert!(!results[0].name_match);
         assert_eq!(results[0].total, 2);
-        assert!(search(&vault, "   ").is_empty());
-        assert!(search(&vault, "finnesikke").is_empty());
+        assert!(search(&vault, "   ", " - presentasjon").is_empty());
+        assert!(search(&vault, "finnesikke", " - presentasjon").is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

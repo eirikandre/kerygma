@@ -130,3 +130,34 @@ export function setHeading(view: EditorView, level: number) {
   view.dispatch({ changes });
   view.focus();
 }
+
+const QUOTE = /^[ \t]*>[ \t]?/;
+
+/**
+ * Gjør linjene i markeringen til et sitat (`> ` foran), eller til vanlig tekst
+ * hvis alle allerede er sitat. Tomme linjer inni markeringen får `>`, så
+ * avsnittene blir ett sitat og ikke flere.
+ */
+export function toggleQuote(view: EditorView) {
+  const { state } = view;
+  const lines: Array<{ from: number; text: string }> = [];
+  const seen = new Set<number>();
+  for (const range of state.selection.ranges) {
+    const last = state.doc.lineAt(range.to);
+    for (let n = state.doc.lineAt(range.from).number; n <= last.number; n++) {
+      if (seen.has(n)) continue;
+      seen.add(n);
+      const line = state.doc.line(n);
+      lines.push({ from: line.from, text: line.text });
+    }
+  }
+  const content = lines.filter((line) => line.text.trim() !== "");
+  const quoted = content.length > 0 && content.every((line) => QUOTE.test(line.text));
+  const changes = lines.map((line) => {
+    if (quoted) return { from: line.from, to: line.from + (QUOTE.exec(line.text)?.[0].length ?? 0), insert: "" };
+    if (QUOTE.test(line.text)) return { from: line.from, insert: "" };
+    return { from: line.from, insert: line.text.trim() === "" ? ">" : "> " };
+  });
+  view.dispatch({ changes });
+  view.focus();
+}

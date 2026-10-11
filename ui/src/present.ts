@@ -3,7 +3,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import Reveal from "reveal.js";
 import revealCss from "reveal.js/dist/reveal.css?url";
 import blackCss from "reveal.js/dist/theme/black.css?url";
+import { api } from "./api.ts";
 import { ditherBackground } from "./dither.ts";
+import { applySlideStyle, type SlideStyle } from "./slideThemes.ts";
 
 /** reveal.css, temaet og så slides.css, i den rekkefølgen. Fjernes når visningen avsluttes. */
 async function loadStyles(): Promise<HTMLLinkElement[]> {
@@ -32,7 +34,17 @@ let running = false;
 export async function present(slides: string[]) {
   if (running || slides.length === 0) return;
   running = true;
-  const links = await loadStyles();
+  const [links, style] = await Promise.all([
+    loadStyles(),
+    api.getSettings().then(
+      (settings): SlideStyle => ({
+        theme: settings.slideTheme,
+        headingFont: settings.headingFont,
+        quoteFont: settings.quoteFont,
+      }),
+      (): SlideStyle => ({ theme: "", headingFont: "", quoteFont: "" }),
+    ),
+  ]);
 
   const overlay = document.createElement("div");
   overlay.className = "presentation-overlay";
@@ -49,7 +61,12 @@ export async function present(slides: string[]) {
   const wasFullscreen = await appWindow.isFullscreen().catch(() => false);
   if (!wasFullscreen) await appWindow.setFullscreen(true).catch(() => {});
 
-  const removeBackground = ditherBackground(overlay.querySelector<HTMLElement>(".reveal")!);
+  const reveal = overlay.querySelector<HTMLElement>(".reveal")!;
+  applySlideStyle(reveal, style);
+  // slides.css gir .slides-container samme bakgrunn, men leser fargen fra .reveal.
+  overlay.querySelector<HTMLElement>(".slides-container")!.style.backgroundColor =
+    reveal.style.getPropertyValue("--r-background-color");
+  const removeBackground = ditherBackground(reveal);
   const deck = new Reveal(overlay.querySelector<HTMLElement>(".reveal")!, {
     embedded: true,
     controlsTutorial: false,

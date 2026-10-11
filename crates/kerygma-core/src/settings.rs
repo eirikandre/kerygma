@@ -10,6 +10,7 @@ use crate::extract::DEFAULT_MAX_CHARS;
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub suffix: String,
+    /// Fra pluginen. Appen åpner alltid presentasjonen, siden den ikke vises i treet.
     pub open_copy: bool,
     pub max_chars: usize,
     pub add_translation: bool,
@@ -20,6 +21,12 @@ pub struct Settings {
     pub aliases: String,
     /// Hvor importerte Word-manus legges. Tom: mappa til notatet som er åpent.
     pub import_folder: String,
+    /// Temaet presentasjonen vises med (id fra `ui/src/slideThemes.ts`).
+    pub slide_theme: String,
+    /// Skriften i overskriftene på slidene. Tom: temaets skrift.
+    pub heading_font: String,
+    /// Skriften i sitater og bibelvers på slidene. Tom: temaets skrift.
+    pub quote_font: String,
 }
 
 impl Default for Settings {
@@ -33,6 +40,9 @@ impl Default for Settings {
             default_translation: "nb88".to_string(),
             aliases: "n=nb88,e=kjv,ne=nb88+kjv".to_string(),
             import_folder: String::new(),
+            slide_theme: "kveld".to_string(),
+            heading_font: String::new(),
+            quote_font: String::new(),
         }
     }
 }
@@ -69,6 +79,15 @@ impl Settings {
         if let Some(v) = text("importFolder") {
             settings.import_folder = v;
         }
+        if let Some(v) = text("slideTheme") {
+            settings.slide_theme = v;
+        }
+        if let Some(v) = text("headingFont") {
+            settings.heading_font = v;
+        }
+        if let Some(v) = text("quoteFont") {
+            settings.quote_font = v;
+        }
         settings.sanitized()
     }
 
@@ -91,6 +110,12 @@ impl Settings {
             self.default_translation = default.default_translation;
         }
         self.import_folder = self.import_folder.trim().to_string();
+        self.slide_theme = self.slide_theme.trim().to_string();
+        if self.slide_theme.is_empty() {
+            self.slide_theme = default.slide_theme;
+        }
+        self.heading_font = self.heading_font.trim().to_string();
+        self.quote_font = self.quote_font.trim().to_string();
         self
     }
 
@@ -113,5 +138,14 @@ mod tests {
         );
         assert!(!settings.to_json().contains("trigger"));
         assert_eq!(Settings::from_json("ikke json"), Settings::default());
+    }
+
+    #[test]
+    fn tema_og_skrifter_for_presentasjonen() {
+        let settings = Settings::from_json(r#"{"slideTheme":" papir ","headingFont":"lora","quoteFont":3}"#);
+        assert_eq!(settings.slide_theme, "papir");
+        assert_eq!(settings.heading_font, "lora");
+        assert_eq!(settings.quote_font, "");
+        assert_eq!(Settings::from_json(r#"{"slideTheme":""}"#).slide_theme, "kveld");
     }
 }

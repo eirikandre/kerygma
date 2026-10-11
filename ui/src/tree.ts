@@ -9,6 +9,7 @@ export interface TreeActions {
   rename(path: string, newName: string): Promise<void>;
   delete(path: string, name: string): void;
   createPresentation(path: string): void;
+  importWord(folder: string): void;
 }
 
 export class TreeView {
@@ -143,6 +144,7 @@ export class TreeView {
         contextMenu(event, [
           { label: "Ny note", action: () => this.actions.newNote(node.path) },
           { label: "Ny mappe", action: () => this.actions.newFolder(node.path) },
+          { label: "Importer Word-manus hit …", action: () => this.actions.importWord(node.path) },
           { label: "Gi nytt navn", action: () => this.startRename(node.path) },
           { label: "Slett", danger: true, action: () => this.actions.delete(node.path, node.name) },
         ]),

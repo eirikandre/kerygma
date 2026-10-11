@@ -27,7 +27,7 @@ Høyreklikk for flere valg:
 
 | På | Valg |
 |---|---|
-| en mappe | Ny note, Ny mappe, Gi nytt navn, Slett |
+| en mappe | Ny note, Ny mappe, Importer Word-manus hit, Gi nytt navn, Slett |
 | et notat | Gi nytt navn, Slett, Lag presentasjon |
 
 Det du sletter, havner i papirkurven.
@@ -56,7 +56,7 @@ Resten av teksten, altså det du sier, blir ikke med i presentasjonen. Det blir 
 
 Fet (`**tekst**`), kursiv (`*tekst*`), understreket (`<u>tekst</u>`), overstreket (`~~tekst~~`) og utheving (`==tekst==`) blir med i presentasjonen, også i bibelvers. Bilder setter du inn med `![[bilde.png]]`.
 
-Ikonene øverst formaterer teksten. Hold musepekeren over et ikon for å se hva det gjør. Marker teksten (eller sett markøren i et ord), og trykk **B** for fet, **I** for kursiv, **U** for understreket eller **S** for overstreket. Trykk én gang til for å fjerne formateringen. Lista til venstre for knappene gjør linja markøren står på, til en overskrift eller til vanlig tekst.
+Ikonene øverst formaterer teksten. Hold musepekeren over et ikon for å se hva det gjør. Marker teksten (eller sett markøren i et ord), og trykk **B** for fet, **I** for kursiv, **U** for understreket eller **S** for overstreket. Trykk én gang til for å fjerne formateringen. Knappen med anførselstegn gjør linjene du har markert, til et sitat (den setter `>` foran), og fjerner det igjen hvis de allerede er et sitat. Markerer du flere avsnitt, blir de ett sitat. Lista til venstre for knappene gjør linja markøren står på, til en overskrift eller til vanlig tekst.
 
 **Cmd/Ctrl + E**, eller øyet øverst, bytter mellom å skrive og å lese teksten ferdig formatert.
 
@@ -85,7 +85,7 @@ Verset settes inn som et sitat med referansen bak: `> tekst (referanse)`.
 1. Åpne manuset.
 2. Trykk **Cmd/Ctrl + Shift + M**, eller tavla øverst (*Lag presentasjon*).
 
-Det lages et nytt notat ved siden av manuset, med samme navn og ` - presentasjon` bak. Manuset blir ikke endret.
+Det lages et nytt notat ved siden av manuset, med samme navn og ` - presentasjon` bak. Manuset blir ikke endret. Presentasjonen åpnes med en gang. Den vises ikke i lista til venstre (bare hvis manuset er borte); vil du til den igjen, lager du den på nytt fra manuset.
 
 - Hvert bibelvers får engelsk (King James) ved siden av, i to kolonner.
 - Lange vers deles over flere slides.
@@ -97,16 +97,16 @@ Redigerer du presentasjonen, vises et gult varsel om at endringene blir overskre
 
 ## 6. Vise presentasjonen
 
-1. Åpne presentasjonen.
-2. Trykk **Cmd/Ctrl + Shift + P**, eller ▷ øverst (*Vis presentasjon*).
+1. Lag presentasjonen fra manuset (se over). Den åpnes.
+2. Trykk **Cmd/Ctrl + Shift + P**, eller ▷ øverst (*Vis presentasjon*). ▷ står rett etter knappen som lager presentasjonen.
 
 Presentasjonen fyller hele skjermen. Bla med piltastene, mellomrom eller en fjernkontroll for presentasjoner. **Esc** avslutter.
 
-▷ vises bare i presentasjoner. Har du et manus åpent, lager du presentasjonen først.
+▷ vises bare i presentasjoner, ikke i manuset. Slik viser du alltid en presentasjon som er laget fra manuset slik det er nå.
 
 ## 7. Importere manus fra Word
 
-1. Velg **Fil → Importer Word-manus …**.
+1. Trykk på dokumentet med pil opp nede i sidefeltet, eller velg **Fil → Importer Word-manus …**. Vil du ha manusene i en bestemt mappe, høyreklikker du på mappa og velger **Importer Word-manus hit …**.
 2. Velg én eller flere `.docx`-filer.
 
 Hvert manus blir et notat. Bibelversene i manuset blir gjenkjent og gjort om til `> tekst (referanse)`, så de blir med i presentasjonen og får engelsk ved siden av.
@@ -142,8 +142,18 @@ Under **Presentasjoner og bibel** er innstillingene for mappa som er åpen:
 | Oversettelse | oversettelsen ved siden av: `kjv`, `nb88` eller `nb24` |
 | Standardoversettelse | oversettelsen du får når du setter inn vers uten prefiks |
 | Snarveier | korte navn som `ne` for flere oversettelser |
-| Mappe for importerte Word-manus | tom: mappa til notatet som er åpent |
-| Åpne presentasjonen | åpne presentasjonen når den er laget |
+| Mappe for importerte Word-manus | tom: mappa til notatet som er åpent. «Importer Word-manus hit» i treet går foran |
+
+Under **Utseende på presentasjonen** velger du tema for mappa som er åpen. Trykk på et av de fire bildene:
+
+| Tema | |
+|---|---|
+| Kveld | mørk blå med gylne overskrifter (standard) |
+| Papir | lys og varm, passer i lyse rom |
+| Kontrast | hvit tekst på svart, lettest å lese på svake prosjektorer og i strømming |
+| Skog | dyp grønn med lysegrønne overskrifter |
+
+Hvert tema har sine egne skrifter. Vil du ha en annen skrift, velger du den under **Skrift i overskrifter** og **Skrift i sitater** (sitater og bibelvers). De to kan velges hver for seg. Lora og Montserrat er bygget inn og ser like ut på alle maskiner; de andre må finnes på maskinen som viser presentasjonen. Obsidian viser alltid temaet Kveld.
 
 ## Hurtigtaster
 
@@ -159,6 +169,7 @@ Under **Presentasjoner og bibel** er innstillingene for mappa som er åpen:
 | Cmd/Ctrl + I | kursiv |
 | Cmd/Ctrl + U | understreket |
 | Cmd/Ctrl + Shift + X | overstreket |
+| Cmd/Ctrl + Shift + . | sitat |
 | Cmd/Ctrl + rullehjul | større eller mindre skrift |
 | Cmd/Ctrl + F | søk i notatet |
 | Cmd/Ctrl + Shift + F | søk i alle notatene |

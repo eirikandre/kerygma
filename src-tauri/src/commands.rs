@@ -106,7 +106,7 @@ pub fn open_vault(app: AppHandle, state: State<AppState>, path: String) -> Resul
         .allow_directory(vault.root(), true)
         .map_err(|e| format!("Kunne ikke gi tilgang til bildene i mappa: {e}"))?;
     let watcher = watch(&app, &vault);
-    let tree = vault.tree();
+    let tree = vault.tree(&settings.suffix);
     let mut config = read_app_config(&app);
     config.last_vault = Some(vault.root().to_string_lossy().into_owned());
     write_app_config(&app, &config);
@@ -117,7 +117,7 @@ pub fn open_vault(app: AppHandle, state: State<AppState>, path: String) -> Resul
 
 #[tauri::command]
 pub fn tree(state: State<AppState>) -> Result<Tree> {
-    with_vault(&state, |open| Ok(open.vault.tree()))
+    with_vault(&state, |open| Ok(open.vault.tree(&open.settings.suffix)))
 }
 
 #[tauri::command]
@@ -153,8 +153,8 @@ pub fn delete(state: State<AppState>, path: String) -> Result<()> {
 /// Søk i navn og innhold i alle notatene.
 #[tauri::command(async)]
 pub fn search(state: State<'_, AppState>, query: String) -> Result<Vec<kerygma_core::search::SearchResult>> {
-    let vault = with_vault(&state, |open| Ok(open.vault.clone()))?;
-    Ok(kerygma_core::search::search(&vault, &query))
+    let (vault, suffix) = with_vault(&state, |open| Ok((open.vault.clone(), open.settings.suffix.clone())))?;
+    Ok(kerygma_core::search::search(&vault, &query, &suffix))
 }
 
 /// HTML til lesevisningen, med bildene løst opp.
@@ -175,7 +175,7 @@ pub fn resolve_link(state: State<AppState>, target: String, from: String) -> Res
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum CreateResult {
     #[serde(rename_all = "camelCase")]
-    Created { path: String, warnings: Vec<String>, open: bool },
+    Created { path: String, warnings: Vec<String> },
     /// En fil uten markøren har navnet; grensesnittet spør og kaller igjen med `overwrite`.
     Exists { path: String },
     MissingManuscript { path: String },
@@ -228,7 +228,7 @@ pub fn create_presentation(
         presentation_content(&manuscript, &kerygma_core::file_name(&paths.manuscript), &settings, bibel)
     };
     vault.write_note(&paths.presentation, &slides)?;
-    Ok(CreateResult::Created { path: paths.presentation, warnings, open: settings.open_copy })
+    Ok(CreateResult::Created { path: paths.presentation, warnings })
 }
 
 /// HTML per slide til «Vis presentasjon».
@@ -311,14 +311,20 @@ pub struct ImportTarget {
     is_folder: bool,
 }
 
-/// Hvor hver Word-fil havner: i «Mappe for importerte Word-manus», eller i
-/// mappa til fila som er åpen. Grensesnittet spør før det overskriver.
+/// Hvor hver Word-fil havner: i mappa brukeren valgte i treet (`folder_chosen`), ellers i
+/// «Mappe for importerte Word-manus», eller i mappa til fila som er åpen. Grensesnittet
+/// spør før det overskriver.
 #[tauri::command]
-pub fn import_targets(state: State<AppState>, files: Vec<String>, current_folder: String) -> Result<Vec<ImportTarget>> {
+pub fn import_targets(
+    state: State<AppState>,
+    files: Vec<String>,
+    current_folder: String,
+    folder_chosen: bool,
+) -> Result<Vec<ImportTarget>> {
     with_vault(&state, |open| {
         let folder = match open.settings.import_folder.trim() {
-            "" => current_folder.trim_matches('/').to_string(),
-            folder => folder.trim_matches('/').to_string(),
+            folder if !folder.is_empty() && !folder_chosen => folder.trim_matches('/').to_string(),
+            _ => current_folder.trim_matches('/').to_string(),
         };
         Ok(files
             .into_iter()

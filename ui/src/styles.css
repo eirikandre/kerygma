@@ -724,6 +724,61 @@ button.primary:hover {
   letter-spacing: 0.04em;
   color: var(--text-muted);
 }
+/* Temaene for presentasjonen. Fargene og skriftene settes fra slideThemes.ts. */
+.slide-theme-setting {
+  display: block;
+}
+.slide-themes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.slide-theme {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.slide-theme[aria-checked="true"] {
+  border-color: var(--accent);
+}
+.slide-theme-preview {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  aspect-ratio: 16 / 10;
+  padding: 8px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  text-align: center;
+  color: var(--r-main-color);
+}
+.slide-theme-heading {
+  font-family: var(--r-heading-font);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--r-heading-color);
+}
+.slide-theme-quote {
+  font-family: var(--r-main-font);
+  font-style: italic;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.slide-theme-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+.slide-theme-desc {
+  margin-top: 8px;
+}
 .setting input.toggle {
   width: 18px;
   height: 18px;

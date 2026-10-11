@@ -6,7 +6,17 @@ import { api, basename, errorMessage, folderOf, presentationSource, type Tree } 
 import { loadAppearance, onAppearanceChange, zoomWithWheel } from "./appearance.ts";
 import { confirmDelete, confirmOverwrite, notice } from "./dialogs.ts";
 import { Editor } from "./editor.ts";
-import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, headingLevel, setHeading, toggleMark, type Mark } from "./format.ts";
+import {
+  BOLD,
+  ITALIC,
+  STRIKETHROUGH,
+  UNDERLINE,
+  headingLevel,
+  setHeading,
+  toggleMark,
+  toggleQuote,
+  type Mark,
+} from "./format.ts";
 import { type IconName, icon, initTooltips, setIcon } from "./icons.ts";
 import { importWord } from "./importReport.ts";
 import { present } from "./present.ts";
@@ -83,6 +93,7 @@ const tree = new TreeView($("tree"), {
   rename: (path, name) => run(() => renamePath(path, name)),
   delete: (path, name) => void run(() => deletePath(path, name)),
   createPresentation: (path) => void run(() => createPresentation(path)),
+  importWord: (folder) => void run(() => importWordTo(folder, true)),
 });
 
 /** Kjører en handling og viser feilen som en melding. */
@@ -108,6 +119,7 @@ async function openVault(path?: string) {
   showTree(result);
   $("vault-name").textContent = result.name;
   $("search-box").hidden = false;
+  $("import-word").hidden = false;
   search.clear();
   $("empty-text").textContent = "Velg et notat i treet, eller lag et nytt med Cmd/Ctrl + N.";
   $("empty-open").hidden = true;
@@ -135,6 +147,7 @@ function updatePresentationUi() {
   const source = state.path ? presentationSource(editor.getValue()) : undefined;
   const manuscript = source && state.path ? `${folderOf(state.path) ? `${folderOf(state.path)}/` : ""}${source}` : undefined;
   const create = $<HTMLButtonElement>("create-presentation");
+  // I manuset lager knappen presentasjonen; i presentasjonen kommer ▷ etter den.
   $("show-presentation").hidden = !source;
   if (source) {
     const exists = !!manuscript && inTree(manuscript);
@@ -373,7 +386,8 @@ async function createPresentation(path = state.path) {
         state.dirty = false;
         editor.replace(fresh);
         await showMode();
-      } else if (result.open) {
+      } else {
+        // Presentasjoner vises ikke i treet, så den åpnes alltid; der startes den med ▷.
         await openNote(result.path);
       }
     }
@@ -385,8 +399,9 @@ async function showPresentation() {
     notice("Åpne en presentasjon først.");
     return;
   }
+  // Presentasjonen startes fra presentasjonen, ikke fra manuset: først lages den, så vises den.
   if (!presentationSource(editor.getValue())) {
-    notice("Dette notatet er ikke en presentasjon. Lag den med Cmd/Ctrl + Shift + M.");
+    notice("Lag presentasjonen først (Cmd/Ctrl + Shift + M). Den åpnes, og der starter du den med ▷.");
     return;
   }
   const slides = await api.slides(state.path, editor.getValue());
@@ -409,22 +424,29 @@ function insertVerse() {
   openVerseModal(editor);
 }
 
+/** Importerer Word-manus til mappa. `chosen`: mappa er valgt i treet og går foran innstillingen. */
+async function importWordTo(folder: string, chosen: boolean) {
+  if (!state.vaultPath) {
+    notice("Åpne en mappe først.");
+    return;
+  }
+  await importWord(
+    folder,
+    async (path) => {
+      await refreshTree();
+      await openNote(path);
+    },
+    chosen,
+  );
+  await refreshTree();
+}
+
 // --- Kommandoer, knapper, meny og hurtigtaster -------------------------------
 
 const commands: Record<string, () => void | Promise<void>> = {
   "open-vault": () => openVault(),
   "new-note": () => newNote(),
-  "import-word": async () => {
-    if (!state.vaultPath) {
-      notice("Åpne en mappe først.");
-      return;
-    }
-    await importWord(state.path ? folderOf(state.path) : "", async (path) => {
-      await refreshTree();
-      await openNote(path);
-    });
-    await refreshTree();
-  },
+  "import-word": () => importWordTo(state.path ? folderOf(state.path) : "", false),
   settings: () => openSettings(),
   "toggle-preview": () => togglePreview(),
   "create-presentation": () => createPresentation(),
@@ -482,10 +504,13 @@ for (const [id, mark] of FORMAT_BUTTONS) {
   $(id).addEventListener("mousedown", (event) => event.preventDefault());
   $(id).addEventListener("click", () => toggleMark(editor.view, mark));
 }
+$("format-quote").addEventListener("mousedown", (event) => event.preventDefault());
+$("format-quote").addEventListener("click", () => toggleQuote(editor.view));
 $<HTMLSelectElement>("heading").addEventListener("change", (event) => {
   setHeading(editor.view, Number((event.target as HTMLSelectElement).value));
 });
 $("open-vault").addEventListener("click", () => command("open-vault"));
+$("import-word").addEventListener("click", () => command("import-word"));
 $("empty-open").addEventListener("click", () => command("open-vault"));
 $("settings-button").addEventListener("click", () => command("settings"));
 $("title").addEventListener("click", () => startTitleRename());
