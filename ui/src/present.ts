@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import Reveal from "reveal.js";
 import revealCss from "reveal.js/dist/reveal.css?url";
 import blackCss from "reveal.js/dist/theme/black.css?url";
+import { ditherBackground } from "./dither.ts";
 
 /** reveal.css, temaet og så slides.css, i den rekkefølgen. Fjernes når visningen avsluttes. */
 async function loadStyles(): Promise<HTMLLinkElement[]> {
@@ -48,6 +49,7 @@ export async function present(slides: string[]) {
   const wasFullscreen = await appWindow.isFullscreen().catch(() => false);
   if (!wasFullscreen) await appWindow.setFullscreen(true).catch(() => {});
 
+  const removeBackground = ditherBackground(overlay.querySelector<HTMLElement>(".reveal")!);
   const deck = new Reveal(overlay.querySelector<HTMLElement>(".reveal")!, {
     embedded: true,
     controlsTutorial: false,
@@ -62,6 +64,7 @@ export async function present(slides: string[]) {
   const close = async () => {
     document.removeEventListener("keydown", onKey, true);
     deck.destroy();
+    removeBackground();
     overlay.remove();
     for (const link of links) link.remove();
     if (!wasFullscreen) await appWindow.setFullscreen(false).catch(() => {});

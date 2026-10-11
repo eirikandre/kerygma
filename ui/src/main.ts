@@ -2,7 +2,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { api, basename, errorMessage, folderOf, type Tree } from "./api.ts";
+import { api, basename, errorMessage, folderOf, presentationSource, type Tree } from "./api.ts";
 import { loadAppearance, onAppearanceChange, zoomWithWheel } from "./appearance.ts";
 import { confirmDelete, confirmOverwrite, notice } from "./dialogs.ts";
 import { Editor } from "./editor.ts";
@@ -34,9 +34,22 @@ const state = {
   /** Det som sist ble lest fra eller skrevet til disk. */
   saved: "",
   dirty: false,
-  mode: "edit" as "edit" | "preview",
+  mode: "edit" as Mode,
+  /** Visningen sist valgt i et vanlig notat; presentasjoner åpnes alltid i lesevisning. */
+  manuscriptMode: loadManuscriptMode(),
   saveTimer: undefined as number | undefined,
 };
+
+type Mode = "edit" | "preview";
+const MODE_KEY = "kerygma.manuscriptMode";
+
+function loadManuscriptMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === "preview" ? "preview" : "edit";
+  } catch {
+    return "edit";
+  }
+}
 
 const editor = new Editor(
   $("editor"),
@@ -44,6 +57,7 @@ const editor = new Editor(
     state.dirty = true;
     window.clearTimeout(state.saveTimer);
     state.saveTimer = window.setTimeout(() => void save(), SAVE_DELAY_MS);
+    updatePresentationUi();
   },
   () => {
     // Overskriftsvalget viser nivået på linja markøren står på.
@@ -103,6 +117,51 @@ function showTree(result: Tree) {
   state.tree = result;
   tree.render(result);
   tree.setActive(state.path);
+  updatePresentationUi();
+}
+
+/** Finnes noten i treet? */
+function inTree(path: string, node: Tree | undefined = state.tree): boolean {
+  return !!node && (node.path === path || node.children.some((child) => inTree(path, child)));
+}
+
+/**
+ * Knappene og varselet etter om notatet er en presentasjon laget av appen
+ * (markøren `<!-- kerygma-presentasjon: … -->`): bare presentasjoner kan vises,
+ * «Lag presentasjon» lager den på nytt fra manuset, og i redigering varsles det
+ * om at endringer blir overskrevet.
+ */
+function updatePresentationUi() {
+  const source = state.path ? presentationSource(editor.getValue()) : undefined;
+  const manuscript = source && state.path ? `${folderOf(state.path) ? `${folderOf(state.path)}/` : ""}${source}` : undefined;
+  const create = $<HTMLButtonElement>("create-presentation");
+  $("show-presentation").hidden = !source;
+  if (source) {
+    const exists = !!manuscript && inTree(manuscript);
+    create.disabled = !exists;
+    setIcon(
+      create,
+      "presentation",
+      exists
+        ? `Lag presentasjonen på nytt fra «${basename(source)}» (Cmd/Ctrl + Shift + M)`
+        : `Fant ikke manuset «${basename(source)}»`,
+    );
+  } else {
+    create.disabled = false;
+    setIcon(create, "presentation", "Lag presentasjon (Cmd/Ctrl + Shift + M)");
+  }
+  const banner = $("presentation-banner");
+  banner.hidden = !source || state.mode !== "edit";
+  if (source) {
+    const exists = !!manuscript && inTree(manuscript);
+    $("presentation-banner-text").textContent = exists
+      ? `Dette er en presentasjon laget fra «${basename(source)}». ` +
+        "Endringer du gjør her, blir overskrevet neste gang presentasjonen lages."
+      : `Dette er en presentasjon laget fra «${basename(source)}», men manuset finnes ikke lenger. ` +
+        "Presentasjonen kan ikke lages på nytt.";
+    $("open-manuscript").hidden = !exists;
+    $("open-manuscript").onclick = () => manuscript && void run(() => openNote(manuscript));
+  }
 }
 
 async function refreshTree() {
@@ -126,13 +185,18 @@ async function save() {
   }
 }
 
-async function openNote(path: string) {
+/**
+ * Åpner notatet. Presentasjoner åpnes i lesevisning, vanlige notater i visningen
+ * som sist ble valgt i et vanlig notat, med mindre `mode` er oppgitt.
+ */
+async function openNote(path: string, mode?: Mode) {
   if (path === state.path) return;
   await save();
   const content = await api.readNote(path);
   state.path = path;
   state.saved = content;
   state.dirty = false;
+  state.mode = mode ?? (presentationSource(content) ? "preview" : state.manuscriptMode);
   editor.load(content);
   $("title").textContent = basename(path);
   $("toolbar").hidden = false;
@@ -163,6 +227,7 @@ function closeNote() {
   $("preview").hidden = true;
   $("empty").hidden = false;
   tree.setActive(undefined);
+  updatePresentationUi();
 }
 
 async function showMode() {
@@ -170,6 +235,7 @@ async function showMode() {
   $("editor").hidden = preview;
   $("preview").hidden = !preview;
   $("format").hidden = preview;
+  updatePresentationUi();
   setIcon($("toggle-preview"), preview ? "pencil" : "eye", preview ? "Rediger (Cmd/Ctrl + E)" : "Lesevisning (Cmd/Ctrl + E)");
   if (preview && state.path) {
     $("preview").innerHTML = await api.renderNote(state.path, editor.getValue());
@@ -179,6 +245,15 @@ async function showMode() {
 async function togglePreview() {
   if (!state.path) return;
   state.mode = state.mode === "edit" ? "preview" : "edit";
+  // Valget huskes for vanlige notater; i en presentasjon gjelder det bare der og da.
+  if (!presentationSource(editor.getValue())) {
+    state.manuscriptMode = state.mode;
+    try {
+      localStorage.setItem(MODE_KEY, state.mode);
+    } catch {
+      // Uten lagring huskes valget til appen lukkes.
+    }
+  }
   await showMode();
   if (state.mode === "edit") editor.focus();
 }
@@ -203,8 +278,7 @@ async function newNote(folder?: string) {
   if (!state.vaultPath) return;
   const path = await api.createNote(folder ?? (state.path ? folderOf(state.path) : ""));
   await refreshTree();
-  state.mode = "edit";
-  await openNote(path);
+  await openNote(path, "edit");
   startTitleRename();
 }
 
@@ -292,15 +366,15 @@ async function createPresentation(path = state.path) {
       for (const warning of result.warnings) notice(warning, { error: true });
       notice(`Presentasjon laget: ${basename(result.path)}`);
       await refreshTree();
-      if (result.open) {
-        await openNote(result.path);
-      } else if (state.path === result.path) {
+      if (state.path === result.path) {
         // Presentasjonen er åpen, men laget på nytt: vis det nye innholdet.
         const fresh = await api.readNote(result.path);
         state.saved = fresh;
         state.dirty = false;
         editor.replace(fresh);
         await showMode();
+      } else if (result.open) {
+        await openNote(result.path);
       }
     }
   }
@@ -309,6 +383,10 @@ async function createPresentation(path = state.path) {
 async function showPresentation() {
   if (!state.path) {
     notice("Åpne en presentasjon først.");
+    return;
+  }
+  if (!presentationSource(editor.getValue())) {
+    notice("Dette notatet er ikke en presentasjon. Lag den med Cmd/Ctrl + Shift + M.");
     return;
   }
   const slides = await api.slides(state.path, editor.getValue());

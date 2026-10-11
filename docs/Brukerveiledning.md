@@ -64,7 +64,7 @@ Ikonene øverst formaterer teksten. Hold musepekeren over et ikon for å se hva 
 
 1. Sett markøren der verset skal stå.
 2. Trykk **Cmd/Ctrl + Shift + B**, eller boka øverst (*Sett inn bibelvers*).
-3. Skriv en referanse. Verset vises mens du skriver.
+3. Skriv en referanse, eller ord fra verset. Verset vises mens du skriver.
 4. Trykk **Enter**.
 
 | Du skriver | Du får |
@@ -74,7 +74,9 @@ Ikonene øverst formaterer teksten. Hold musepekeren over et ikon for å se hva 
 | `1kor13:4-7` | vers 4 til 7 |
 | `ne:joh3:16` | norsk og engelsk under hverandre |
 | `kjv:john3:16` | bare engelsk |
-| `s=tro håp` | søk; velg et av treffene med piltastene |
+| `tro håp` | søk; velg et av treffene med piltastene |
+
+Er det du skriver ikke en referanse, søkes det etter versene som har alle ordene. Du trenger ikke skrive `s=` foran, men det virker også. Finner ikke søket noe, står det hvorfor, for eksempel at boka ikke finnes.
 
 Verset settes inn som et sitat med referansen bak: `> tekst (referanse)`.
 
@@ -87,7 +89,11 @@ Det lages et nytt notat ved siden av manuset, med samme navn og ` - presentasjon
 
 - Hvert bibelvers får engelsk (King James) ved siden av, i to kolonner.
 - Lange vers deles over flere slides.
-- Har du endret manuset, gjør du det samme én gang til. Kerygma spør om den gamle presentasjonen skal erstattes. Du kan også gjøre det fra presentasjonen selv.
+- Har du endret manuset, gjør du det samme én gang til. Den gamle presentasjonen erstattes uten at Kerygma spør. Du kan også gjøre det fra presentasjonen selv. Finnes det et notat med samme navn som Kerygma ikke har laget, spør Kerygma før det overskrives.
+
+Øverst i presentasjonen står en linje som `<!-- kerygma-presentasjon: Påske.md -->`. Den vises ikke i lesevisningen eller presentasjonen, men forteller Kerygma at notatet er en presentasjon, og hvilket manus den er laget fra. Ikke slett den. Uten den er notatet et vanlig notat.
+
+Redigerer du presentasjonen, vises et gult varsel om at endringene blir overskrevet neste gang presentasjonen lages. Vil du endre noe varig, endrer du manuset. Knappen **Åpne manuset** i varselet tar deg dit.
 
 ## 6. Vise presentasjonen
 
@@ -96,7 +102,7 @@ Det lages et nytt notat ved siden av manuset, med samme navn og ` - presentasjon
 
 Presentasjonen fyller hele skjermen. Bla med piltastene, mellomrom eller en fjernkontroll for presentasjoner. **Esc** avslutter.
 
-Viser du et manus som ikke er en presentasjon, vises hele manuset, delt der det står `---`.
+▷ vises bare i presentasjoner. Har du et manus åpent, lager du presentasjonen først.
 
 ## 7. Importere manus fra Word
 
@@ -124,7 +130,7 @@ Advarslene blir ikke med i presentasjonen. Du kan derfor lage presentasjon før 
 
 Trykk på tannhjulet nede i sidefeltet, eller **Cmd/Ctrl + ,**.
 
-Under **Tekst** velger du skrift og skriftstørrelse i editoren og lesevisningen. De gjelder alle mapper. Du kan også endre størrelsen ved å holde inne **Cmd/Ctrl** og rulle med musa over teksten (eller knipe på styreflaten).
+Under **Utseende** velger du tema (lyst, mørkt eller følg systemet, som er standard), og skrift og skriftstørrelse i editoren og lesevisningen. De gjelder alle mapper. Du kan også endre størrelsen ved å holde inne **Cmd/Ctrl** og rulle med musa over teksten (eller knipe på styreflaten).
 
 Under **Presentasjoner og bibel** er innstillingene for mappa som er åpen:
 

@@ -1,7 +1,8 @@
 // Innstillingene, med de samme navnene og beskrivelsene som SlideCreatorSettingTab i pluginen.
-import { api, errorMessage, type Settings } from "./api.ts";
-import { FONTS, MAX_SIZE, MIN_SIZE, getAppearance, setAppearance } from "./appearance.ts";
+import { api, errorMessage, type Settings, type Theme } from "./api.ts";
+import { FONTS, MAX_SIZE, MIN_SIZE, THEMES, getAppearance, setAppearance } from "./appearance.ts";
 import { notice, openModal } from "./dialogs.ts";
+import { setIcon } from "./icons.ts";
 
 const DEFAULTS: Settings = {
   suffix: " - presentasjon",
@@ -82,11 +83,20 @@ export async function openSettings() {
     return;
   }
   const modal = openModal("settings-modal");
+  // Topplinje med × og bunnlinje med «Lukk», som blir stående når vinduet rulles.
+  const header = document.createElement("div");
+  header.className = "settings-header";
   const heading = document.createElement("h2");
   heading.textContent = "Innstillinger";
-  modal.el.append(heading);
+  const closeIcon = document.createElement("button");
+  closeIcon.type = "button";
+  closeIcon.className = "icon-button";
+  setIcon(closeIcon, "x", "Lukk (Esc)");
+  closeIcon.addEventListener("click", () => modal.close());
+  header.append(heading, closeIcon);
+  modal.el.append(header);
 
-  section(modal.el, "Tekst", "Gjelder editoren og lesevisningen i alle mapper.");
+  section(modal.el, "Utseende", "Gjelder appen i alle mapper.");
   appearanceSettings(modal.el);
   section(modal.el, "Presentasjoner og bibel", "Gjelder mappa som er åpen.");
 
@@ -148,6 +158,19 @@ export async function openSettings() {
     "Cmd/Ctrl + B, I og U gir fet, kursiv og understreket tekst, og Cmd/Ctrl + Shift + X overstreket. " +
     "Cmd/Ctrl + Shift + F søker i alle notatene.";
   modal.el.append(hotkeys);
+
+  const footer = document.createElement("div");
+  footer.className = "settings-footer";
+  const saved = document.createElement("span");
+  saved.className = "setting-desc";
+  saved.textContent = "Endringer lagres med en gang.";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "primary";
+  close.textContent = "Lukk";
+  close.addEventListener("click", () => modal.close());
+  footer.append(saved, close);
+  modal.el.append(footer);
 }
 
 function section(parent: HTMLElement, title: string, desc: string) {
@@ -172,9 +195,19 @@ function settingRow(name: string, desc: string, control: HTMLElement): HTMLEleme
   return row;
 }
 
-/** Skrift og størrelse. Endres med en gang, så teksten bak vinduet viser valget. */
+/** Tema, skrift og størrelse. Endres med en gang, så appen bak vinduet viser valget. */
 function appearanceSettings(parent: HTMLElement) {
   const current = getAppearance();
+
+  const theme = document.createElement("select");
+  for (const option of THEMES) {
+    const el = document.createElement("option");
+    el.value = option.id;
+    el.textContent = option.name;
+    theme.append(el);
+  }
+  theme.value = current.theme;
+  theme.addEventListener("change", () => setAppearance({ theme: theme.value as Theme }));
 
   const font = document.createElement("select");
   for (const option of FONTS) {
@@ -203,6 +236,7 @@ function appearanceSettings(parent: HTMLElement) {
   });
 
   parent.append(
+    settingRow("Tema", "Lyst eller mørkt. Standard: følg systemet.", theme),
     settingRow("Skrift", "Skrifttypen i editoren og lesevisningen.", font),
     settingRow(
       "Skriftstørrelse",

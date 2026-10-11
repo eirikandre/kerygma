@@ -1,6 +1,7 @@
 //! Tolker det som skrives i oppslagsvinduet for bibelvers, skrevet som i
 //! espanso-oppsettet til bible: "1mos3:1", "ne:joh3:16" og "s=tro håp" (søk).
-//! Kolon foran og mellomrom rundt, som i ":1mos3:1 ", tåles.
+//! Kolon foran og mellomrom rundt, som i ":1mos3:1 ", tåles. `suggest_verse`
+//! søker også uten «s=» når teksten ikke er en referanse.
 //!
 //! Skrevet etter `src/verseQuery.ts` og `src/verseModal.ts` i obsidian-slide-creator.
 
@@ -102,4 +103,38 @@ pub fn lookup_verse(bibel: &Bibel, input: &str) -> Vec<Suggestion> {
             output.split('\n').filter(|line| !line.trim().is_empty()).map(as_suggestion).collect()
         }
     }
+}
+
+/// Søk uten «s=» starter først ved så mange tegn, så de første bokstavene i en bok ikke gir treff.
+pub const MIN_AUTO_SEARCH_CHARS: usize = 3;
+
+/// Forslagene i oppslagsvinduet i appen: som `lookup_verse`, men tekst som ikke
+/// er en referanse ("tro håp", "hyrde"), søkes etter uten at «s=» må skrives.
+/// Ser teksten ut som en referanse, men gir ikke noe vers ("finnesikke1:1"),
+/// søkes det også; finner ikke søket noe, vises meldingen fra oppslaget.
+pub fn suggest_verse(bibel: &Bibel, input: &str) -> Vec<Suggestion> {
+    let trimmed = input.trim();
+    let text = trimmed.strip_prefix(':').unwrap_or(trimmed).trim();
+    match parse_verse_query(input).map(|parsed| parsed.kind) {
+        Some(VerseQueryKind::Search) => lookup_verse(bibel, input),
+        Some(VerseQueryKind::Lookup) => {
+            let found = lookup_verse(bibel, input);
+            if found.iter().any(|s| s.text.is_some()) {
+                return found;
+            }
+            let hits = auto_search(bibel, text);
+            if hits.iter().any(|s| s.text.is_some()) {
+                hits
+            } else {
+                found
+            }
+        }
+        None if len16(text) >= MIN_AUTO_SEARCH_CHARS => auto_search(bibel, text),
+        None => vec![],
+    }
+}
+
+/// Søk som om det var skrevet «s=» foran. «=» kan ikke stå i et søk, så det blir mellomrom.
+fn auto_search(bibel: &Bibel, text: &str) -> Vec<Suggestion> {
+    lookup_verse(bibel, &format!("s={}", text.replace('=', " ")))
 }

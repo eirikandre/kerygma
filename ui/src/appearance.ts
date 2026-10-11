@@ -1,6 +1,7 @@
-// Skrift og størrelse i editoren og lesevisningen. Lagres i app.json (gjelder
-// appen, ikke vaulten) og kan endres med Cmd/Ctrl + rullehjul over teksten.
-import { api, type Appearance } from "./api.ts";
+// Skrift og størrelse i editoren og lesevisningen, og lyst eller mørkt tema. Lagres i
+// app.json (gjelder appen, ikke vaulten). Størrelsen kan endres med Cmd/Ctrl + rullehjul over teksten.
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { api, type Appearance, type Theme } from "./api.ts";
 
 export interface Font {
   id: string;
@@ -20,7 +21,13 @@ export const FONTS: Font[] = [
   { id: "mono", name: "Monospace", stack: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace' },
 ];
 
-export const DEFAULT_APPEARANCE: Appearance = { font: "georgia", fontSize: 17 };
+export const THEMES: Array<{ id: Theme; name: string }> = [
+  { id: "system", name: "Følg systemet" },
+  { id: "light", name: "Lyst" },
+  { id: "dark", name: "Mørkt" },
+];
+
+export const DEFAULT_APPEARANCE: Appearance = { font: "georgia", fontSize: 17, theme: "system" };
 export const MIN_SIZE = 10;
 export const MAX_SIZE = 40;
 
@@ -53,7 +60,21 @@ function apply() {
   const root = document.documentElement.style;
   root.setProperty("--editor-font", font.stack);
   root.setProperty("--editor-size", `${current.fontSize}px`);
+  applyTheme(current.theme);
   for (const listener of listeners) listener(getAppearance());
+}
+
+let appliedTheme: Theme | undefined;
+
+/** `data-theme` styrer fargene i styles.css; vinduet (tittellinja) får samme tema. */
+function applyTheme(theme: Theme) {
+  if (theme === appliedTheme) return;
+  appliedTheme = theme;
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  getCurrentWindow()
+    .setTheme(theme === "system" ? null : theme)
+    .catch((error) => console.error(error));
 }
 
 /** Leser skrift og størrelse fra app.json. */
@@ -66,7 +87,7 @@ export async function loadAppearance() {
   apply();
 }
 
-/** Endrer skrift og/eller størrelse med en gang, og lagrer litt etterpå. */
+/** Endrer skrift, størrelse og/eller tema med en gang, og lagrer litt etterpå. */
 export function setAppearance(change: Partial<Appearance>) {
   current = { ...current, ...change, fontSize: clampSize(change.fontSize ?? current.fontSize) };
   apply();

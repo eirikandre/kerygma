@@ -1,5 +1,6 @@
 // «Sett inn bibelvers»: "1mos3:1" viser verset, og Enter setter det inn ved
-// markøren som sitatet "> tekst (ref)". "s=tro håp" søker. Etter verseModal.ts i pluginen.
+// markøren som sitatet "> tekst (ref)". Annen tekst, som "tro håp", søkes etter
+// (også uten "s=" som i pluginen). Etter verseModal.ts i pluginen.
 import { api, errorMessage, type Suggestion } from "./api.ts";
 import { openModal } from "./dialogs.ts";
 import type { Editor } from "./editor.ts";
@@ -10,7 +11,7 @@ export function openVerseModal(editor: Editor) {
   const modal = openModal("verse-modal", () => editor.focus());
   modal.el.innerHTML = `
     <input class="verse-input" type="text" spellcheck="false" autocomplete="off"
-      placeholder="Bibelreferanse, som joh3:16, ne:sal23 eller s=tro håp" />
+      placeholder="Referanse som joh3:16 eller ne:sal23, eller ord å søke etter" />
     <div class="verse-suggestions"></div>
     <div class="verse-instructions"><span><kbd>↑↓</kbd> velg</span><span><kbd>↵</kbd> sett inn</span><span><kbd>esc</kbd> avbryt</span></div>`;
   const input = modal.el.querySelector<HTMLInputElement>(".verse-input")!;
@@ -27,7 +28,7 @@ export function openVerseModal(editor: Editor) {
     if (suggestions.length === 0) {
       const empty = document.createElement("div");
       empty.className = "verse-empty";
-      empty.textContent = "Skriv en referanse, som 1mos3:1 eller ne:joh3:16. s=tro håp søker.";
+      empty.textContent = "Skriv en referanse, som 1mos3:1 eller ne:joh3:16, eller ord å søke etter, som tro håp.";
       list.append(empty);
       return;
     }

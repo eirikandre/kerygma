@@ -186,8 +186,8 @@ Flyten (fra `createSlideCopy` i `main.ts`):
 
 1. Ta innholdet fra editoren hvis fila er åpen (ulagrede endringer skal med), ellers fra disk.
 2. Presentasjonen heter `<navn><suffix>.md` (suffix standard `" - presentasjon"`) og legges i samme mappe som manuset, så relative bildestier virker.
-3. Kjøres kommandoen fra en presentasjon, lages den på nytt fra manuset ved siden av. Finnes ikke manuset, vises en melding.
-4. Finnes presentasjonen fra før, spør «"<sti>" finnes allerede. Vil du overskrive den?» med knappene *Avbryt* og *Overskriv*.
+3. Kjøres kommandoen fra en presentasjon, lages den på nytt fra manuset ved siden av. Finnes ikke manuset, vises en melding. Presentasjonen merkes med `<!-- kerygma-presentasjon: <manus>.md -->` (etter frontmatter), og markøren avgjør om noten er en presentasjon og hvilket manus den er laget fra; uten markør avgjør navnet, som i pluginen.
+4. Finnes presentasjonen fra før og har markøren, erstattes den uten å spørre (redigering i den gir et varsel om at endringer overskrives). Finnes en fil med navnet uten markøren, spør «"<sti>" finnes allerede. Vil du overskrive den?» med knappene *Avbryt* og *Overskriv*.
 5. Går oversettelsen ikke (biblene er ikke lastet, ukjent oversettelse), lages presentasjonen uten, og det vises én melding.
 6. Melding: «Presentasjon laget: <navn>». Åpne den hvis *Åpne presentasjonen* er på.
 
@@ -206,7 +206,7 @@ Gjør det samme som Obsidians Slides (se `obsidian.asar`: den deler markdown-AST
    ```
 3. Last `reveal.js/dist/reveal.css`, temaet `reveal.js/dist/theme/black.css` og så `slides.css`, i den rekkefølgen. Start med `new Reveal(el, { embedded: true, controlsTutorial: false, overview: false, hash: false })` og `initialize()`. Bruk 960 × 700, som er standard.
 4. Piltaster, mellomrom og PageUp/PageDown (fjernkontroller for presentasjon) blar. Esc avslutter, går ut av fullskjerm og fjerner overlegget (`deck.destroy()`).
-5. Startes visningen fra et manus som ikke er en presentasjon, vises manuset som det er (som i Obsidian). Knappen kan tilby «Lag presentasjon først».
+5. «Vis presentasjon» vises bare i noter med markøren. I andre noter gir hurtigtasten en melding om å lage presentasjonen først.
 
 ### 5. Sett inn bibelvers (Cmd/Ctrl + Shift + B)
 

@@ -17,3 +17,8 @@ pub fn path_name(path: &str) -> String {
     let file = path.rsplit('/').next().unwrap_or(path);
     file.strip_suffix(".md").unwrap_or(file).to_string()
 }
+
+/// Filnavnet med endelse, uten mappe: "Prekener/Påske.md" gir "Påske.md".
+pub fn file_name(path: &str) -> String {
+    path.rsplit('/').next().unwrap_or(path).to_string()
+}

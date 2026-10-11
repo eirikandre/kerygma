@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use kerygma_core::bible::{Bibel, BibelConfig};
-use kerygma_core::presentation::{presentation_content, presentation_paths};
+use kerygma_core::presentation::{presentation_content, presentation_paths_for};
 use kerygma_core::settings::Settings;
-use kerygma_core::verse_query::lookup_verse;
+use kerygma_core::verse_query::suggest_verse;
 use kerygma_core::word::{import_docx, note_name, ConvertOptions};
 
 const HELP: &str = "\
@@ -15,7 +15,7 @@ kerygma - manus og presentasjoner fra terminalen
 BRUK
     kerygma lag-presentasjon <manus.md> [FLAGG]
                         skriver presentasjonen til stdout
-    kerygma vers <referanse eller s=søk>
+    kerygma vers <referanse eller søkeord>
                         slår opp som «Sett inn bibelvers»
     kerygma importer <fil.docx eller mappe>... [--ut <mappe>] [--uten-søk]
                         gjør Word-manus om til markdown ved siden av .docx-fila
@@ -113,7 +113,11 @@ fn make_presentation(options: &Options) -> Result<(), String> {
         return Err("bruk: kerygma lag-presentasjon <manus.md>".to_string());
     };
     let path = path.replace('\\', "/");
-    let paths = presentation_paths(&path, &options.settings.suffix);
+    let note = std::fs::read_to_string(&path).unwrap_or_default();
+    let paths = presentation_paths_for(&path, &note, &options.settings.suffix);
+    if paths.manuscript == paths.presentation {
+        return Err(format!("«{path}» er merket som en presentasjon laget fra seg selv."));
+    }
     let manuscript = std::fs::read_to_string(&paths.manuscript)
         .map_err(|e| format!("kunne ikke lese «{}»: {e}", paths.manuscript))?;
 
@@ -128,7 +132,8 @@ fn make_presentation(options: &Options) -> Result<(), String> {
     } else {
         None
     };
-    let (content, warnings) = presentation_content(&manuscript, &options.settings, bibel.as_ref());
+    let source = kerygma_core::file_name(&paths.manuscript);
+    let (content, warnings) = presentation_content(&manuscript, &source, &options.settings, bibel.as_ref());
     for warning in warnings {
         eprintln!("kerygma: {warning}");
     }
@@ -145,7 +150,7 @@ fn make_presentation(options: &Options) -> Result<(), String> {
 fn verse(options: &Options) -> Result<(), String> {
     let input = options.positional.join(" ");
     let bibel = load_bibel(&options.bibles, &options.settings)?;
-    for suggestion in lookup_verse(&bibel, &input) {
+    for suggestion in suggest_verse(&bibel, &input) {
         match (suggestion.text, suggestion.message) {
             (Some(text), _) => println!("{text}"),
             (None, Some(message)) => println!("[{message}]"),

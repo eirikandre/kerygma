@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use kerygma_core::markdown;
-use kerygma_core::presentation::{presentation_content, presentation_paths};
+use kerygma_core::presentation::{presentation_content, presentation_paths_for, presentation_source};
 use kerygma_core::settings::Settings;
 use kerygma_core::vault::{Tree, Vault};
 use kerygma_core::verse_query::{self, Suggestion};
@@ -176,7 +176,7 @@ pub fn resolve_link(state: State<AppState>, target: String, from: String) -> Res
 pub enum CreateResult {
     #[serde(rename_all = "camelCase")]
     Created { path: String, warnings: Vec<String>, open: bool },
-    /// Presentasjonen finnes; grensesnittet spør og kaller igjen med `overwrite`.
+    /// En fil uten markøren har navnet; grensesnittet spør og kaller igjen med `overwrite`.
     Exists { path: String },
     MissingManuscript { path: String },
     IsFolder { path: String },
@@ -192,15 +192,28 @@ pub fn create_presentation(
     overwrite: bool,
 ) -> Result<CreateResult> {
     let (vault, settings) = with_vault(&state, |open| Ok((open.vault.clone(), open.settings.clone())))?;
-    let paths = presentation_paths(&path, &settings.suffix);
+    // Markøren i en presentasjon sier hvilket manus den er laget fra; ellers avgjør navnet.
+    let note = match &content {
+        Some(content) => content.clone(),
+        None => vault.read_note(&path).unwrap_or_default(),
+    };
+    let paths = presentation_paths_for(&path, &note, &settings.suffix);
+    if paths.manuscript == paths.presentation {
+        return Err(format!("«{path}» er merket som en presentasjon laget fra seg selv."));
+    }
     if paths.from_presentation && !vault.exists(&paths.manuscript) {
         return Ok(CreateResult::MissingManuscript { path: paths.manuscript });
     }
     if vault.is_folder(&paths.presentation) {
         return Ok(CreateResult::IsFolder { path: paths.presentation });
     }
+    // En presentasjon appen har laget (med markøren), erstattes uten å spørre: den varsler selv
+    // om at endringer blir overskrevet. Andre filer med samme navn spør vi om først.
     if vault.exists(&paths.presentation) && !overwrite {
-        return Ok(CreateResult::Exists { path: paths.presentation });
+        let generated = vault.read_note(&paths.presentation).is_ok_and(|text| presentation_source(&text).is_some());
+        if !generated {
+            return Ok(CreateResult::Exists { path: paths.presentation });
+        }
     }
     let manuscript = match content {
         Some(content) if !paths.from_presentation => content,
@@ -212,7 +225,7 @@ pub fn create_presentation(
             BibleState::Ready(bibel) => Some(bibel),
             _ => None,
         };
-        presentation_content(&manuscript, &settings, bibel)
+        presentation_content(&manuscript, &kerygma_core::file_name(&paths.manuscript), &settings, bibel)
     };
     vault.write_note(&paths.presentation, &slides)?;
     Ok(CreateResult::Created { path: paths.presentation, warnings, open: settings.open_copy })
@@ -234,7 +247,7 @@ pub fn slides(state: State<AppState>, path: String, content: Option<String>) -> 
 #[tauri::command(async)]
 pub fn lookup_verse(state: State<AppState>, input: String) -> Vec<Suggestion> {
     match &*state.bible.lock().unwrap() {
-        BibleState::Ready(bibel) => verse_query::lookup_verse(bibel, &input),
+        BibleState::Ready(bibel) => verse_query::suggest_verse(bibel, &input),
         BibleState::Loading => vec![Suggestion::message("Biblene lastes …")],
         BibleState::Failed(message) => vec![Suggestion::message(message.clone())],
     }

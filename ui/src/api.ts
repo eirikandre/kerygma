@@ -22,10 +22,13 @@ export interface Settings {
   importFolder: string;
 }
 
-/** Skrift og størrelse i editoren og lesevisningen (app.json, ikke vaulten). */
+export type Theme = "system" | "light" | "dark";
+
+/** Skrift og størrelse i editoren og lesevisningen, og tema (app.json, ikke vaulten). */
 export interface Appearance {
   font: string;
   fontSize: number;
+  theme: Theme;
 }
 
 /** Et notat med treff i søket. */
@@ -113,4 +116,12 @@ export function basename(path: string): string {
 export function folderOf(path: string): string {
   const i = path.lastIndexOf("/");
   return i < 0 ? "" : path.slice(0, i);
+}
+
+/** Markøren appen setter i presentasjoner, som `presentation_source` i kerygma-core. */
+const PRESENTATION_MARKER = /^<!-- kerygma-presentasjon: (.+?) -->[ \t]*\r?$/m;
+
+/** Manuset (filnavnet, i samme mappe) presentasjonen er laget fra, eller undefined for andre notater. */
+export function presentationSource(content: string): string | undefined {
+  return PRESENTATION_MARKER.exec(content)?.[1];
 }

@@ -68,7 +68,7 @@ pub struct AppConfig {
     pub appearance: Appearance,
 }
 
-/// Skrift og størrelse i editoren og lesevisningen. Gjelder appen, ikke vaulten.
+/// Skrift og størrelse i editoren og lesevisningen, og lyst eller mørkt tema. Gjelder appen, ikke vaulten.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Appearance {
@@ -76,6 +76,8 @@ pub struct Appearance {
     pub font: String,
     /// Skriftstørrelse i piksler.
     pub font_size: u32,
+    /// `system` (følg systemet), `light` eller `dark`.
+    pub theme: String,
 }
 
 impl Appearance {
@@ -87,13 +89,14 @@ impl Appearance {
         Appearance {
             font: if self.font.trim().is_empty() { default.font } else { self.font },
             font_size: self.font_size.clamp(Self::MIN_SIZE, Self::MAX_SIZE),
+            theme: if matches!(self.theme.as_str(), "light" | "dark") { self.theme } else { default.theme },
         }
     }
 }
 
 impl Default for Appearance {
     fn default() -> Self {
-        Appearance { font: "georgia".to_string(), font_size: 17 }
+        Appearance { font: "georgia".to_string(), font_size: 17, theme: "system".to_string() }
     }
 }
 
@@ -107,15 +110,17 @@ mod tests {
         assert_eq!(config.last_vault.as_deref(), Some("/tmp/v"));
         assert_eq!(config.appearance.font, "georgia");
         assert_eq!(config.appearance.font_size, 17);
+        assert_eq!(config.appearance.theme, "system");
     }
 
     #[test]
     fn skriftstorrelsen_holdes_innenfor_grensene() {
-        let config: AppConfig = serde_json::from_str(r#"{"font":"","fontSize":200}"#).unwrap();
+        let config: AppConfig = serde_json::from_str(r#"{"font":"","fontSize":200,"theme":"blå"}"#).unwrap();
         let appearance = config.appearance.sanitized();
         assert_eq!(appearance.font, "georgia");
         assert_eq!(appearance.font_size, Appearance::MAX_SIZE);
+        assert_eq!(appearance.theme, "system");
         let json = serde_json::to_string(&AppConfig { last_vault: None, appearance }).unwrap();
-        assert_eq!(json, r#"{"lastVault":null,"font":"georgia","fontSize":40}"#);
+        assert_eq!(json, r#"{"lastVault":null,"font":"georgia","fontSize":40,"theme":"system"}"#);
     }
 }
