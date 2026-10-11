@@ -2,11 +2,11 @@
 //! Lagres per vault i `<vault>/.kerygma/settings.json`.
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::extract::DEFAULT_MAX_CHARS;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub suffix: String,
@@ -51,44 +51,7 @@ impl Settings {
     /// Leser bare feltene som finnes nå, som `loadSettings`. Ukjente felt og
     /// felt med feil type ignoreres, og ugyldige verdier gir standardverdien.
     pub fn from_json(json: &str) -> Settings {
-        let saved: Value = serde_json::from_str(json).unwrap_or(Value::Null);
-        let mut settings = Settings::default();
-        let text = |key: &str| saved.get(key).and_then(Value::as_str).map(String::from);
-        let flag = |key: &str| saved.get(key).and_then(Value::as_bool);
-        if let Some(v) = text("suffix") {
-            settings.suffix = v;
-        }
-        if let Some(v) = flag("openCopy") {
-            settings.open_copy = v;
-        }
-        if let Some(v) = saved.get("maxChars").and_then(Value::as_i64) {
-            settings.max_chars = usize::try_from(v).unwrap_or(0);
-        }
-        if let Some(v) = flag("addTranslation") {
-            settings.add_translation = v;
-        }
-        if let Some(v) = text("translation") {
-            settings.translation = v;
-        }
-        if let Some(v) = text("defaultTranslation") {
-            settings.default_translation = v;
-        }
-        if let Some(v) = text("aliases") {
-            settings.aliases = v;
-        }
-        if let Some(v) = text("importFolder") {
-            settings.import_folder = v;
-        }
-        if let Some(v) = text("slideTheme") {
-            settings.slide_theme = v;
-        }
-        if let Some(v) = text("headingFont") {
-            settings.heading_font = v;
-        }
-        if let Some(v) = text("quoteFont") {
-            settings.quote_font = v;
-        }
-        settings.sanitized()
+        crate::json::over_default::<Settings>(json).sanitized()
     }
 
     /// Som innstillingssiden i pluginen: tom suffix, `maxChars` ≤ 0 og tomme

@@ -49,8 +49,10 @@ pub fn marker(source: &str) -> String {
     format!("<!-- kerygma-presentasjon: {source} -->")
 }
 
-static MARKER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^<!-- kerygma-presentasjon: (.+?) -->[ \t]*\r?$").unwrap());
+/// Mønsteret for markørlinja, uten flagg. Brukes også i grensesnittet (med `m`), via `bindings.ts`.
+pub const MARKER_PATTERN: &str = r"^<!-- kerygma-presentasjon: (.+?) -->[ \t]*\r?$";
+
+static MARKER: LazyLock<Regex> = LazyLock::new(|| Regex::new(&format!("(?m){MARKER_PATTERN}")).unwrap());
 
 /// Manuset (filnavnet, i samme mappe) en presentasjon er laget fra, eller `None`
 /// hvis teksten ikke er en presentasjon laget av appen.

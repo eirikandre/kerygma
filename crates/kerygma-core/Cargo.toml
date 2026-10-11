@@ -18,6 +18,11 @@ zip = { version = "9.0.1", default-features = false, features = ["deflate"] }
 quick-xml = "0.42.0"
 unicode-normalization = "0.1.25"
 lopdf = { version = "0.45.0", default-features = false }
+# Typene til grensesnittet (`ui/src/bindings.ts`), lages av `src-tauri`.
+specta = { version = "=2.0.0-rc.25", features = ["derive"], optional = true }
+
+[features]
+specta = ["dep:specta"]
 
 [dev-dependencies]
 regex = "1"

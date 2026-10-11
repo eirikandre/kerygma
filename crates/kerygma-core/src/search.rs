@@ -20,7 +20,17 @@ pub const MAX_LINES: usize = 5;
 /// Lengre linjer kortes ned rundt det første treffet.
 const SNIPPET_CHARS: usize = 160;
 
+/// Svaret på et søk: ordene som ble brukt (så grensesnittet kan markere dem
+/// likt), og filene med treff.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct SearchResponse {
+    pub terms: Vec<String>,
+    pub results: Vec<SearchResult>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     /// Relativt til vault-roten, med `/`.
@@ -36,6 +46,7 @@ pub struct SearchResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LineMatch {
     /// Linjenummeret, fra 1.
     pub line: usize,
@@ -50,10 +61,10 @@ pub fn terms(query: &str) -> Vec<String> {
 
 /// Søker i alle manusene i vaulten. Presentasjoner med manuset ved siden av hoppes
 /// over, som i treet: treffene står i manuset.
-pub fn search(vault: &Vault, query: &str, suffix: &str) -> Vec<SearchResult> {
+pub fn search(vault: &Vault, query: &str, suffix: &str) -> SearchResponse {
     let terms = terms(query);
     if terms.is_empty() {
-        return vec![];
+        return SearchResponse::default();
     }
     let mut results: Vec<SearchResult> = vault
         .notes()
@@ -75,7 +86,7 @@ pub fn search(vault: &Vault, query: &str, suffix: &str) -> Vec<SearchResult> {
         })
     });
     results.truncate(MAX_RESULTS);
-    results
+    SearchResponse { terms, results }
 }
 
 /// Treffet i én fil, eller `None` hvis ikke alle ordene finnes i navn eller tekst.
@@ -146,7 +157,7 @@ mod tests {
     #[test]
     fn treff_i_navnet_kommer_forst_og_skjulte_filer_hoppes_over() {
         let (dir, vault) = temp_vault("navn");
-        let results = search(&vault, "PÅSKE", " - presentasjon");
+        let results = search(&vault, "PÅSKE", " - presentasjon").results;
         let paths: Vec<&str> = results.iter().map(|r| r.path.as_str()).collect();
         assert_eq!(
             paths,
@@ -161,13 +172,15 @@ mod tests {
     #[test]
     fn alle_ordene_ma_finnes_i_navn_eller_tekst() {
         let (dir, vault) = temp_vault("ord");
-        let results = search(&vault, "påske håp", " - presentasjon");
+        let response = search(&vault, "påske håp", " - presentasjon");
+        assert_eq!(response.terms, ["påske", "håp"]);
+        let results = response.results;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "Prekener/Påske.md");
         assert!(!results[0].name_match);
         assert_eq!(results[0].total, 2);
-        assert!(search(&vault, "   ", " - presentasjon").is_empty());
-        assert!(search(&vault, "finnesikke", " - presentasjon").is_empty());
+        assert!(search(&vault, "   ", " - presentasjon").results.is_empty());
+        assert!(search(&vault, "finnesikke", " - presentasjon").results.is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

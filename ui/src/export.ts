@@ -38,18 +38,23 @@ export async function exportPdf(slides: string[], path: string) {
   // Teksten står til høyre for eller under sliden, så den ikke kommer med i PDF-en.
   const area = deck.element.getBoundingClientRect();
   Object.assign(status.style, window.innerWidth - area.right > 200 ? { left: `${area.right + 24}px`, top: "24px" } : { left: "24px", top: `${area.bottom + 16}px` });
+  // Sidene samles i Rust under id-en til eksporten; går noe galt, glemmes de.
+  let id: number | undefined;
   try {
-    await invoke("pdf_begin");
+    const exportId = await api.pdfBegin();
+    id = exportId;
     for (let i = 0; i < slides.length; i++) {
       status.textContent = `Lager PDF … slide ${i + 1} av ${slides.length}`;
       deck.slide(i);
       await ready(deck.element);
       const rect = deck.element.getBoundingClientRect();
-      await invoke("pdf_page", { rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height } });
+      await api.pdfPage(exportId, { x: rect.left, y: rect.top, width: rect.width, height: rect.height });
     }
     status.textContent = "Lagrer PDF-en …";
-    await invoke("pdf_save", { path });
+    await api.pdfSave(exportId, path);
+    id = undefined;
   } finally {
+    if (id !== undefined) void api.pdfCancel(id);
     deck.destroy();
     backdrop.remove();
     for (const el of hidden) el.style.visibility = "";

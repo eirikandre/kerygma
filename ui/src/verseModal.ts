@@ -71,7 +71,7 @@ export function openVerseModal(editor: Editor) {
   // En melding kan ikke settes inn, så vinduet blir stående for å rette referansen.
   const choose = async (index: number) => {
     const text = suggestions[index]?.text;
-    if (text === undefined) return;
+    if (text == null) return;
     const { before, after } = editor.around();
     const quote = await api.quoteVerse(text, before, after);
     modal.close();

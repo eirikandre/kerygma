@@ -1,8 +1,10 @@
 //! Logikken i Kerygma, uten Tauri. Alt her testes med `cargo test`.
 
+pub mod app_config;
 pub mod bible;
 pub mod book_names;
 pub mod extract;
+pub mod json;
 pub mod markdown;
 pub mod pdf;
 pub mod presentation;
@@ -13,6 +15,7 @@ pub mod settings;
 pub mod vault;
 pub mod verse_query;
 pub mod word;
+pub mod workspace;
 
 /// Filnavnet uten mappe og uten `.md`: "Prekener/Påske.md" gir "Påske".
 pub fn path_name(path: &str) -> String {

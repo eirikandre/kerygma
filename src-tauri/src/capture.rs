@@ -5,7 +5,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 /// Et rektangel i CSS-piksler i nettsiden.
-#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, specta::Type)]
 pub struct Rect {
     pub x: f64,
     pub y: f64,

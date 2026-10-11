@@ -3,6 +3,7 @@
 // treet, med det som er på sliden markert. Sliden følger hvor langt du har rullet: når neste del av
 // manuset når leselinja (en tredjedel ned), vises den. Venstre/høyre pil og PageUp/PageDown
 // går til forrige og neste slide, og ruller manuset dit; pil opp og ned ruller manuset.
+import { PRESENTER_END, PRESENTER_START } from "./bindings.ts";
 import { emitTo, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
@@ -59,8 +60,8 @@ async function saveWindowBounds(window: WebviewWindow) {
 }
 
 // Merkene fra `kerygma_core::presenter`: START + i der slide i starter, END + i der den slutter.
-const START = 0xf0000;
-const END = 0x100000;
+const START = PRESENTER_START;
+const END = PRESENTER_END;
 const MARKER = /[\u{F0000}-\u{10FFFD}]/u;
 
 /** Skjermen som ikke har hovedvinduet, når det er to eller flere. */

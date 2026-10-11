@@ -1,104 +1,100 @@
 //! Det appen holder i minnet mens den kjører.
 
-use std::path::PathBuf;
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use kerygma_core::bible::{Bibel, BibelConfig};
 use kerygma_core::settings::Settings;
-use kerygma_core::vault::Vault;
+use kerygma_core::workspace::Workspace;
 use notify::RecommendedWatcher;
-use serde::{Deserialize, Serialize};
 
+/// Biblene. `Ready` holder en `Arc`, så en kommando kan kopiere den og slippe låsen
+/// før den gjør noe: et langt søk eller en Word-import stopper ikke andre oppslag.
+#[derive(Clone)]
 pub enum BibleState {
     Loading,
-    Ready(Bibel),
+    Ready(Arc<Bibel>),
     Failed(String),
 }
 
-pub struct OpenVault {
-    pub vault: Vault,
-    pub settings: Settings,
-    /// Holdes i live så lenge vaulten er åpen; endringer utenfra blir `vault-changed`.
-    pub _watcher: Option<RecommendedWatcher>,
+impl BibleState {
+    pub fn ready(&self) -> Option<&Bibel> {
+        match self {
+            BibleState::Ready(bibel) => Some(bibel),
+            _ => None,
+        }
+    }
 }
 
-impl OpenVault {
-    pub fn settings_path(&self) -> PathBuf {
-        self.vault.root().join(".kerygma").join("settings.json")
-    }
+pub struct OpenVault {
+    pub workspace: Workspace,
+    /// Holdes i live så lenge vaulten er åpen; endringer utenfra blir `VaultChanged`.
+    pub _watcher: Option<RecommendedWatcher>,
 }
 
 pub struct AppState {
     pub vault: Mutex<Option<OpenVault>>,
-    pub bible: Mutex<BibleState>,
-    /// Sidene til PDF-en som eksporteres (én PDF per slide), til de slås sammen.
-    pub pdf_pages: Mutex<Vec<Vec<u8>>>,
+    bible: Mutex<BibleState>,
+    /// Sidene til PDF-ene som eksporteres (én PDF per slide), per eksport, til de slås sammen.
+    pub pdf_exports: Mutex<PdfExports>,
+}
+
+#[derive(Default)]
+pub struct PdfExports {
+    next: u32,
+    pub pages: HashMap<u32, Vec<Vec<u8>>>,
+}
+
+impl PdfExports {
+    /// Starter en ny eksport og gir id-en til den.
+    pub fn begin(&mut self) -> u32 {
+        self.next = self.next.wrapping_add(1);
+        self.pages.insert(self.next, Vec::new());
+        self.next
+    }
 }
 
 impl Default for AppState {
     fn default() -> Self {
-        AppState { vault: Mutex::new(None), bible: Mutex::new(BibleState::Loading), pdf_pages: Mutex::new(Vec::new()) }
+        AppState {
+            vault: Mutex::new(None),
+            bible: Mutex::new(BibleState::Loading),
+            pdf_exports: Mutex::new(PdfExports::default()),
+        }
     }
 }
 
 impl AppState {
+    /// En kopi av vaulten som er åpen, med innstillingene. Låsen slippes med en gang.
+    pub fn workspace(&self) -> Result<Workspace, String> {
+        self.vault.lock().unwrap().as_ref().map(|open| open.workspace.clone()).ok_or_else(|| "Ingen mappe er åpen.".to_string())
+    }
+
     /// Innstillingene til vaulten som er åpen, eller standardverdiene.
     pub fn settings(&self) -> Settings {
-        self.vault.lock().unwrap().as_ref().map(|open| open.settings.clone()).unwrap_or_default()
+        self.vault.lock().unwrap().as_ref().map(|open| open.workspace.settings.clone()).unwrap_or_default()
     }
 
-    /// Bruker innstillingene på `bibel`, hvis biblene er lastet.
+    /// Biblene slik de er nå. Låsen slippes med en gang.
+    pub fn bible(&self) -> BibleState {
+        self.bible.lock().unwrap().clone()
+    }
+
+    pub fn set_bible(&self, bible: BibleState) {
+        *self.bible.lock().unwrap() = bible;
+    }
+
+    /// Bruker innstillingene på biblene, hvis de er lastet. Registeret bygges uten lås,
+    /// og byttes inn etterpå.
     pub fn configure_bible(&self, settings: &Settings) -> Result<(), String> {
-        if let BibleState::Ready(bibel) = &mut *self.bible.lock().unwrap() {
-            bibel
-                .configure(&BibelConfig {
-                    default_translation: settings.default_translation.clone(),
-                    aliases: settings.aliases.clone(),
-                })
-                .map_err(|e| format!("Innstillingene for bibel: {e}"))?;
+        let BibleState::Ready(bibel) = self.bible() else { return Ok(()) };
+        let config = BibelConfig { default_translation: settings.default_translation.clone(), aliases: settings.aliases.clone() };
+        if bibel.config() == Some(&config) {
+            return Ok(());
         }
+        let configured = bibel.configured(&config).map_err(|e| format!("Innstillingene for bibel: {e}"))?;
+        self.set_bible(BibleState::Ready(Arc::new(configured)));
         Ok(())
-    }
-}
-
-/// Det appen husker mellom hver gang den startes (`app.json` i konfigmappa).
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct AppConfig {
-    pub last_vault: Option<String>,
-    #[serde(flatten)]
-    pub appearance: Appearance,
-}
-
-/// Skrift og størrelse i editoren og lesevisningen, og lyst eller mørkt tema. Gjelder appen, ikke vaulten.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct Appearance {
-    /// Nøkkelen til en skrift i lista i grensesnittet (`ui/src/appearance.ts`).
-    pub font: String,
-    /// Skriftstørrelse i piksler.
-    pub font_size: u32,
-    /// `system` (følg systemet), `light` eller `dark`.
-    pub theme: String,
-}
-
-impl Appearance {
-    pub const MIN_SIZE: u32 = 10;
-    pub const MAX_SIZE: u32 = 40;
-
-    pub fn sanitized(self) -> Appearance {
-        let default = Appearance::default();
-        Appearance {
-            font: if self.font.trim().is_empty() { default.font } else { self.font },
-            font_size: self.font_size.clamp(Self::MIN_SIZE, Self::MAX_SIZE),
-            theme: if matches!(self.theme.as_str(), "light" | "dark") { self.theme } else { default.theme },
-        }
-    }
-}
-
-impl Default for Appearance {
-    fn default() -> Self {
-        Appearance { font: "georgia".to_string(), font_size: 17, theme: "system".to_string() }
     }
 }
 
@@ -107,22 +103,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn gammel_app_json_uten_skrift_gir_standardverdier() {
-        let config: AppConfig = serde_json::from_str(r#"{"lastVault":"/tmp/v"}"#).unwrap();
-        assert_eq!(config.last_vault.as_deref(), Some("/tmp/v"));
-        assert_eq!(config.appearance.font, "georgia");
-        assert_eq!(config.appearance.font_size, 17);
-        assert_eq!(config.appearance.theme, "system");
-    }
-
-    #[test]
-    fn skriftstorrelsen_holdes_innenfor_grensene() {
-        let config: AppConfig = serde_json::from_str(r#"{"font":"","fontSize":200,"theme":"blå"}"#).unwrap();
-        let appearance = config.appearance.sanitized();
-        assert_eq!(appearance.font, "georgia");
-        assert_eq!(appearance.font_size, Appearance::MAX_SIZE);
-        assert_eq!(appearance.theme, "system");
-        let json = serde_json::to_string(&AppConfig { last_vault: None, appearance }).unwrap();
-        assert_eq!(json, r#"{"lastVault":null,"font":"georgia","fontSize":40,"theme":"system"}"#);
+    fn hver_pdf_eksport_har_egne_sider() {
+        let mut exports = PdfExports::default();
+        let a = exports.begin();
+        let b = exports.begin();
+        assert_ne!(a, b);
+        exports.pages.get_mut(&a).unwrap().push(vec![1]);
+        assert_eq!(exports.pages[&b].len(), 0);
+        assert_eq!(exports.pages.remove(&a), Some(vec![vec![1]]));
     }
 }

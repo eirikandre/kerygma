@@ -1,17 +1,14 @@
 // Søk i alle manusene i vaulten (navn og innhold). Feltet ligger øverst i
 // sidefeltet; når det står noe i det, vises treffene i stedet for treet.
-import { api, errorMessage, folderOf, type SearchResult } from "./api.ts";
+import { api, errorMessage, folderOf, type SearchResponse, type SearchResult } from "./api.ts";
 
 const SEARCH_DELAY_MS = 150;
-
-/** Ordene i søket, som i `kerygma_core::search::terms`. */
-export function searchTerms(query: string): string[] {
-  return query.normalize("NFC").toLowerCase().split(/\s+/).filter(Boolean);
-}
 
 export class SearchView {
   private timer: number | undefined;
   private request = 0;
+  /** Ordene i det siste søket, slik Rust delte dem (`kerygma_core::search::terms`). */
+  private lastTerms: string[] = [];
 
   constructor(
     private input: HTMLInputElement,
@@ -53,6 +50,11 @@ export class SearchView {
     });
   }
 
+  /** Ordene i søket som vises, til å markere treffet i editoren. */
+  get terms(): string[] {
+    return this.active ? this.lastTerms : [];
+  }
+
   get active(): boolean {
     return this.input.value.trim() !== "";
   }
@@ -86,7 +88,7 @@ export class SearchView {
       this.results.replaceChildren();
       return;
     }
-    let found: SearchResult[];
+    let found: SearchResponse;
     try {
       found = await api.search(query);
     } catch (error) {
@@ -95,7 +97,8 @@ export class SearchView {
       return;
     }
     if (id !== this.request) return; // Et nyere søk har allerede svart.
-    this.show(this.render(found, searchTerms(query)));
+    this.lastTerms = found.terms;
+    this.show(this.render(found.results, found.terms));
   }
 
   private show(content: HTMLElement) {

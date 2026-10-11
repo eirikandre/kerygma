@@ -61,18 +61,27 @@ impl Bibel {
 
     /// Bruker innstillingene. Er de ugyldige, beholdes de gamle.
     pub fn configure(&mut self, config: &BibelConfig) -> Result<(), String> {
-        if self.config.as_ref() == Some(config) {
-            return Ok(());
+        if self.config.as_ref() != Some(config) {
+            *self = self.configured(config)?;
         }
+        Ok(())
+    }
+
+    /// En ny `Bibel` med de samme oversettelsene (dataene deles) og innstillingene.
+    /// Appen bytter ut hele `Bibel`-en, så oppslag som pågår, bruker de gamle innstillingene.
+    pub fn configured(&self, config: &BibelConfig) -> Result<Bibel, String> {
         let mut registry = Registry::parse(&self.files).map_err(|e| format!("ugyldig datasett: {e}"))?;
         let default = config.default_translation.trim();
         if !default.is_empty() {
             registry.set_default(default)?;
         }
         registry.set_aliases(config.aliases.trim())?;
-        self.registry = registry;
-        self.config = Some(config.clone());
-        Ok(())
+        Ok(Bibel { files: self.files.clone(), registry, config: Some(config.clone()) })
+    }
+
+    /// Innstillingene som er i bruk, hvis de er satt.
+    pub fn config(&self) -> Option<&BibelConfig> {
+        self.config.as_ref()
     }
 
     /// Setter bare snarveiene. Er de ugyldige, beholdes de gamle.

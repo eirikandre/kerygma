@@ -3,14 +3,19 @@
 
 mod capture;
 mod commands;
+mod events;
 mod state;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
+use kerygma_core::app_config::Appearance;
 use kerygma_core::bible::Bibel;
 use tauri::menu::{Menu, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder};
-use tauri::{AppHandle, Emitter, Manager, Wry};
+use tauri::{AppHandle, Manager, Wry};
+use tauri_specta::{collect_commands, collect_events, ErrorHandlingMode, Event};
 
+use crate::events::{BibleReady, BibleWarning, VaultChanged};
 use crate::state::{AppState, BibleState};
 
 /// Mappa med `*.bin`: ressursene i appen, eller `bibler/` i repoet under utvikling.
@@ -31,19 +36,19 @@ fn load_bibles(app: &AppHandle) {
         };
         match loaded {
             Ok(bibel) => {
-                *state.bible.lock().unwrap() = BibleState::Ready(bibel);
+                state.set_bible(BibleState::Ready(Arc::new(bibel)));
                 // Innstillingene leses etterpå: åpnes vaulten mens biblene lastes, er det dens som gjelder.
                 if let Err(message) = state.configure_bible(&state.settings()) {
-                    let _ = app.emit("bible-warning", message);
+                    let _ = BibleWarning(message).emit(&app);
                 }
             }
-            Err(message) => *state.bible.lock().unwrap() = BibleState::Failed(message),
+            Err(message) => state.set_bible(BibleState::Failed(message)),
         }
-        let _ = app.emit("bible-ready", ());
+        let _ = BibleReady.emit(&app);
     });
 }
 
-/// Et menyvalg som sender `menu` med id-en til grensesnittet. Hurtigtastene
+/// Et menyvalg som sender `Menu` med id-en til grensesnittet. Hurtigtastene
 /// håndteres i grensesnittet; på macOS vises de også i menyen.
 fn item(app: &AppHandle, id: &str, text: &str, accelerator: &str) -> tauri::Result<tauri::menu::MenuItem<Wry>> {
     let builder = MenuItemBuilder::with_id(id, text);
@@ -115,22 +120,16 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     Menu::with_items(app, &items)
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
-        .manage(AppState::default())
-        .setup(|app| {
-            let handle = app.handle();
-            app.set_menu(menu(handle)?)?;
-            app.on_menu_event(|app, event| {
-                let _ = app.emit("menu", event.id().0.as_str());
-            });
-            load_bibles(handle);
-            Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
+/// Kommandoene, hendelsene og konstantene grensesnittet bruker. `ui/src/bindings.ts` lages
+/// herfra (når appen startes under utvikling, og i testen under), så typene i Rust og
+/// TypeScript ikke kan gli fra hverandre.
+fn specta_builder() -> tauri_specta::Builder<Wry> {
+    tauri_specta::Builder::<Wry>::new()
+        // Feil kastes som en streng, som med `invoke`.
+        .error_handling(ErrorHandlingMode::Throw)
+        // `usize` (antall, linjenumre, `maxChars`) blir `number`; tallene er små.
+        .dangerously_cast_bigints_to_number()
+        .commands(collect_commands![
             commands::last_vault,
             commands::appearance,
             commands::set_appearance,
@@ -153,7 +152,7 @@ pub fn run() {
             commands::pdf_begin,
             commands::pdf_page,
             commands::pdf_save,
-            commands::save_export,
+            commands::pdf_cancel,
             commands::lookup_verse,
             commands::quote_verse,
             commands::get_settings,
@@ -162,6 +161,79 @@ pub fn run() {
             commands::import_targets,
             commands::import_word,
         ])
+        .events(collect_events![events::Menu, VaultChanged, BibleReady, BibleWarning])
+        .constant("PRESENTATION_MARKER_PATTERN", kerygma_core::presentation::MARKER_PATTERN)
+        .constant("PRESENTER_START", kerygma_core::presenter::START)
+        .constant("PRESENTER_END", kerygma_core::presenter::END)
+        .constant("DEFAULT_APPEARANCE", Appearance::default())
+        .constant("APPEARANCE_MIN_SIZE", Appearance::MIN_SIZE)
+        .constant("APPEARANCE_MAX_SIZE", Appearance::MAX_SIZE)
+}
+
+/// Lager `bindings.ts` på `path`.
+fn export_bindings(builder: &tauri_specta::Builder<Wry>, path: &std::path::Path) -> Result<(), String> {
+    let typescript = specta_typescript::Typescript::default()
+        .header("// Laget av src-tauri/src/lib.rs (`specta_builder`). Ikke rediger for hånd.")
+        ;
+    builder.export(typescript, path).map_err(|e| format!("Kunne ikke lage bindings.ts: {e}"))
+}
+
+fn bindings_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../ui/src/bindings.ts")
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let builder = specta_builder();
+    #[cfg(debug_assertions)]
+    if let Err(message) = export_bindings(&builder, &bindings_path()) {
+        eprintln!("{message}");
+    }
+    // `save_export` tar imot rå bytes og er ikke med i `bindings.ts`.
+    let typed = builder.invoke_handler();
+    let raw: fn(tauri::ipc::Invoke<Wry>) -> bool = tauri::generate_handler![commands::save_export];
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .manage(AppState::default())
+        .invoke_handler(move |invoke| match invoke.message.command() {
+            "save_export" => raw(invoke),
+            _ => typed(invoke),
+        })
+        .setup(move |app| {
+            builder.mount_events(app);
+            let handle = app.handle();
+            app.set_menu(menu(handle)?)?;
+            app.on_menu_event(|app, event| {
+                let _ = events::Menu(event.id().0.clone()).emit(app);
+            });
+            load_bibles(handle);
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("kunne ikke starte Kerygma");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `ui/src/bindings.ts` skal være laget fra kommandoene slik de er nå. Feiler testen,
+    /// kjør `cargo test -p kerygma-app` med `KERYGMA_OPPDATER_BINDINGS=1`, eller start appen.
+    #[test]
+    fn bindings_ts_er_oppdatert() {
+        let builder = specta_builder();
+        if std::env::var_os("KERYGMA_OPPDATER_BINDINGS").is_some() {
+            export_bindings(&builder, &bindings_path()).unwrap();
+        }
+        let temp = std::env::temp_dir().join(format!("kerygma-bindings-{}.ts", std::process::id()));
+        export_bindings(&builder, &temp).unwrap();
+        let fresh = std::fs::read_to_string(&temp).unwrap();
+        let _ = std::fs::remove_file(&temp);
+        let saved = std::fs::read_to_string(bindings_path()).unwrap_or_default();
+        assert!(
+            fresh.replace("\r\n", "\n") == saved.replace("\r\n", "\n"),
+            "ui/src/bindings.ts er utdatert. Kjør KERYGMA_OPPDATER_BINDINGS=1 cargo test -p kerygma-app"
+        );
+    }
 }

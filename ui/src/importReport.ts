@@ -25,9 +25,9 @@ export async function importWord(
   const requests: Array<{ file: string; path: string }> = [];
   for (const target of targets) {
     if (target.isFolder) {
-      skipped.push({ name: target.name, quotes: 0, uncertain: 0, unmatched: [], error: `"${target.path}" er en mappe` });
+      skipped.push({ name: target.name, path: null, quotes: 0, uncertain: 0, unmatched: [], error: `"${target.path}" er en mappe` });
     } else if (target.exists && !(await confirmOverwrite(target.path))) {
-      skipped.push({ name: target.name, quotes: 0, uncertain: 0, unmatched: [], error: "finnes fra før, ikke overskrevet" });
+      skipped.push({ name: target.name, path: null, quotes: 0, uncertain: 0, unmatched: [], error: "finnes fra før, ikke overskrevet" });
     } else {
       requests.push({ file: target.file, path: target.path });
     }

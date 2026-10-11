@@ -2,6 +2,7 @@
 // app.json (gjelder appen, ikke vaulten). Størrelsen kan endres med Cmd/Ctrl + rullehjul over teksten.
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, type Appearance, type Theme } from "./api.ts";
+import { APPEARANCE_MAX_SIZE, APPEARANCE_MIN_SIZE, DEFAULT_APPEARANCE as RUST_DEFAULT } from "./bindings.ts";
 
 export interface Font {
   id: string;
@@ -27,9 +28,10 @@ export const THEMES: Array<{ id: Theme; name: string }> = [
   { id: "dark", name: "Mørkt" },
 ];
 
-export const DEFAULT_APPEARANCE: Appearance = { font: "georgia", fontSize: 17, theme: "system" };
-export const MIN_SIZE = 10;
-export const MAX_SIZE = 40;
+// Standardverdiene og grensene er de samme som i `kerygma_core::app_config::Appearance`.
+export const DEFAULT_APPEARANCE: Appearance = { ...RUST_DEFAULT };
+export const MIN_SIZE = APPEARANCE_MIN_SIZE;
+export const MAX_SIZE = APPEARANCE_MAX_SIZE;
 
 const SAVE_DELAY_MS = 400;
 /**

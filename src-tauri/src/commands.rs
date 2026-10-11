@@ -1,71 +1,69 @@
-//! Kommandoene grensesnittet kaller med `invoke`. De er tynne kall til
-//! `kerygma-core`; feil kommer tilbake som en norsk melding.
+//! Kommandoene grensesnittet kaller. De er tynne kall til `kerygma-core`; feil kommer
+//! tilbake som en norsk melding. Typene og kallene i `ui/src/bindings.ts` lages herfra
+//! (se `lib.rs`), unntatt `save_export`, som tar imot rå bytes.
+//!
+//! Ingen kommando holder en lås mens den jobber: den henter en kopi av vaulten
+//! (`AppState::workspace`) og biblene (`AppState::bible`) og slipper låsen.
 
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use kerygma_core::markdown;
-use kerygma_core::presentation::{presentation_content, presentation_paths_for, presentation_source, slide_options};
+use kerygma_core::app_config::{AppConfig, Appearance};
+use kerygma_core::search::SearchResponse;
 use kerygma_core::settings::Settings;
 use kerygma_core::vault::{Tree, Vault};
 use kerygma_core::verse_query::{self, Suggestion};
+use kerygma_core::workspace::{CreateResult, ImportRequest, ImportTarget, ImportedFile, Presenter, Workspace};
 use notify::{RecursiveMode, Watcher};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
+use tauri_specta::Event;
 
-use crate::state::{AppConfig, AppState, Appearance, BibleState, OpenVault};
+use crate::events::VaultChanged;
+use crate::state::{AppState, BibleState, OpenVault};
 
 type Result<T> = std::result::Result<T, String>;
 
-/// Kjører `f` med vaulten som er åpen.
-fn with_vault<T>(state: &AppState, f: impl FnOnce(&OpenVault) -> Result<T>) -> Result<T> {
-    let guard = state.vault.lock().unwrap();
-    let open = guard.as_ref().ok_or("Ingen mappe er åpen.")?;
-    f(open)
-}
-
-fn app_config_path(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_config_dir().ok().map(|dir| dir.join("app.json"))
+fn app_config_path(app: &AppHandle) -> Result<PathBuf> {
+    app.path()
+        .app_config_dir()
+        .map(|dir| dir.join("app.json"))
+        .map_err(|e| format!("Fant ikke mappa til oppsettet: {e}"))
 }
 
 pub fn read_app_config(app: &AppHandle) -> AppConfig {
-    app_config_path(app)
-        .and_then(|path| std::fs::read_to_string(path).ok())
-        .and_then(|json| serde_json::from_str(&json).ok())
-        .unwrap_or_default()
+    app_config_path(app).map(|path| AppConfig::load(&path)).unwrap_or_default()
 }
 
-fn write_app_config(app: &AppHandle, config: &AppConfig) {
-    if let Some(path) = app_config_path(app) {
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        let _ = std::fs::write(path, serde_json::to_string_pretty(config).unwrap_or_default());
-    }
+fn write_app_config(app: &AppHandle, config: &AppConfig) -> Result<()> {
+    config.save(&app_config_path(app)?)
 }
 
 /// Mappa som sist ble åpnet, hvis den fortsatt finnes.
 #[tauri::command]
+#[specta::specta]
 pub fn last_vault(app: AppHandle) -> Option<String> {
     read_app_config(&app).last_vault.filter(|path| std::path::Path::new(path).is_dir())
 }
 
 /// Skrift og størrelse, lagret i `app.json`.
 #[tauri::command]
+#[specta::specta]
 pub fn appearance(app: AppHandle) -> Appearance {
     read_app_config(&app).appearance.sanitized()
 }
 
 #[tauri::command]
-pub fn set_appearance(app: AppHandle, appearance: Appearance) -> Appearance {
+#[specta::specta]
+pub fn set_appearance(app: AppHandle, appearance: Appearance) -> Result<Appearance> {
     let mut config = read_app_config(&app);
     config.appearance = appearance.sanitized();
-    write_app_config(&app, &config);
-    config.appearance
+    write_app_config(&app, &config)?;
+    Ok(config.appearance)
 }
 
-/// Sender `vault-changed` når filer endres utenfra, samlet over et kort øyeblikk.
+/// Sender `VaultChanged` når filer endres utenfra, samlet over et kort øyeblikk.
 fn watch(app: &AppHandle, vault: &Vault) -> Option<notify::RecommendedWatcher> {
     let (tx, rx) = mpsc::channel::<notify::Result<notify::Event>>();
     let mut watcher = notify::recommended_watcher(tx).ok()?;
@@ -83,13 +81,13 @@ fn watch(app: &AppHandle, vault: &Vault) -> Option<notify::RecommendedWatcher> {
                 .filter_map(|event| event.ok())
                 .flat_map(|event| event.paths)
                 .filter_map(|path| vault.relative(&path))
-                // Skjulte filer og mapper (.obsidian, .kerygma) vises ikke i treet.
+                // Skjulte filer og mapper (.obsidian, .kerygma, midlertidige filer) vises ikke i treet.
                 .filter(|path| !path.split('/').any(|part| part.starts_with('.')))
                 .collect();
             paths.sort();
             paths.dedup();
             if !paths.is_empty() {
-                let _ = app.emit("vault-changed", paths);
+                let _ = VaultChanged(paths).emit(&app);
             }
         }
     });
@@ -97,235 +95,164 @@ fn watch(app: &AppHandle, vault: &Vault) -> Option<notify::RecommendedWatcher> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_vault(app: AppHandle, state: State<AppState>, path: String) -> Result<Tree> {
-    let vault = Vault::open(&path)?;
-    let settings = std::fs::read_to_string(vault.root().join(".kerygma").join("settings.json"))
-        .map(|json| Settings::from_json(&json))
-        .unwrap_or_default();
+    let workspace = Workspace::open(&path)?;
     app.asset_protocol_scope()
-        .allow_directory(vault.root(), true)
+        .allow_directory(workspace.vault.root(), true)
         .map_err(|e| format!("Kunne ikke gi tilgang til bildene i mappa: {e}"))?;
-    let watcher = watch(&app, &vault);
-    let tree = vault.tree(&settings.suffix);
+    let watcher = watch(&app, &workspace.vault);
+    let tree = workspace.tree();
     let mut config = read_app_config(&app);
-    config.last_vault = Some(vault.root().to_string_lossy().into_owned());
-    write_app_config(&app, &config);
-    let _ = state.configure_bible(&settings);
-    *state.vault.lock().unwrap() = Some(OpenVault { vault, settings, _watcher: watcher });
+    config.last_vault = Some(workspace.vault.root().to_string_lossy().into_owned());
+    // Mappa er åpnet selv om den ikke kan huskes til neste gang.
+    if let Err(message) = write_app_config(&app, &config) {
+        eprintln!("{message}");
+    }
+    let _ = state.configure_bible(&workspace.settings);
+    *state.vault.lock().unwrap() = Some(OpenVault { workspace, _watcher: watcher });
     Ok(tree)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn tree(state: State<AppState>) -> Result<Tree> {
-    with_vault(&state, |open| Ok(open.vault.tree(&open.settings.suffix)))
+    Ok(state.workspace()?.tree())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn read_note(state: State<AppState>, path: String) -> Result<String> {
-    with_vault(&state, |open| open.vault.read_note(&path))
+    state.workspace()?.vault.read_note(&path)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn write_note(state: State<AppState>, path: String, content: String) -> Result<()> {
-    with_vault(&state, |open| open.vault.write_note(&path, &content))
+    state.workspace()?.vault.write_note(&path, &content)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_note(state: State<AppState>, folder: String) -> Result<String> {
-    with_vault(&state, |open| open.vault.create_note(&folder))
+    state.workspace()?.vault.create_note(&folder)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_folder(state: State<AppState>, parent: String, name: String) -> Result<String> {
-    with_vault(&state, |open| open.vault.create_folder(&parent, &name))
+    state.workspace()?.vault.create_folder(&parent, &name)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rename(state: State<AppState>, path: String, new_name: String) -> Result<String> {
-    with_vault(&state, |open| open.vault.rename(&path, &new_name))
+    state.workspace()?.vault.rename(&path, &new_name)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn move_to(state: State<AppState>, path: String, folder: String) -> Result<String> {
-    with_vault(&state, |open| open.vault.move_to(&path, &folder, &open.settings.suffix))
+    state.workspace()?.move_to(&path, &folder)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete(state: State<AppState>, path: String) -> Result<()> {
-    with_vault(&state, |open| open.vault.delete(&path))
+    state.workspace()?.vault.delete(&path)
 }
 
 /// Søk i navn og innhold i alle manusene.
 #[tauri::command(async)]
-pub fn search(state: State<'_, AppState>, query: String) -> Result<Vec<kerygma_core::search::SearchResult>> {
-    let (vault, suffix) = with_vault(&state, |open| Ok((open.vault.clone(), open.settings.suffix.clone())))?;
-    Ok(kerygma_core::search::search(&vault, &query, &suffix))
+#[specta::specta]
+pub fn search(state: State<'_, AppState>, query: String) -> Result<SearchResponse> {
+    Ok(state.workspace()?.search(&query))
 }
 
 /// HTML til lesevisningen, med bildene løst opp.
 #[tauri::command]
+#[specta::specta]
 pub fn render_note(state: State<AppState>, path: String, content: String) -> Result<String> {
-    with_vault(&state, |open| {
-        let images = open.vault.image_resolver(&path);
-        Ok(markdown::render_html(&content, &images))
-    })
+    Ok(state.workspace()?.render_note(&path, &content))
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn resolve_link(state: State<AppState>, target: String, from: String) -> Result<Option<String>> {
-    with_vault(&state, |open| Ok(open.vault.resolve_link(&target, &from)))
+    Ok(state.workspace()?.vault.resolve_link(&target, &from))
 }
 
-#[derive(Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum CreateResult {
-    #[serde(rename_all = "camelCase")]
-    Created { path: String, warnings: Vec<String> },
-    /// En fil uten markøren har navnet; grensesnittet spør og kaller igjen med `overwrite`.
-    Exists { path: String },
-    MissingManuscript { path: String },
-    IsFolder { path: String },
-}
-
-/// «Lag presentasjon». `content` er innholdet i editoren, så ulagrede
-/// endringer blir med; det brukes bare når `path` er selve manuset.
+/// «Lag presentasjon». `content` er innholdet i editoren, så ulagrede endringer blir med.
 #[tauri::command(async)]
+#[specta::specta]
 pub fn create_presentation(
-    state: State<AppState>,
+    state: State<'_, AppState>,
     path: String,
     content: Option<String>,
     overwrite: bool,
 ) -> Result<CreateResult> {
-    let (vault, settings) = with_vault(&state, |open| Ok((open.vault.clone(), open.settings.clone())))?;
-    // Markøren i en presentasjon sier hvilket manus den er laget fra; ellers avgjør navnet.
-    let note = match &content {
-        Some(content) => content.clone(),
-        None => vault.read_note(&path).unwrap_or_default(),
-    };
-    let paths = presentation_paths_for(&path, &note, &settings.suffix);
-    if paths.manuscript == paths.presentation {
-        return Err(format!("«{path}» er merket som en presentasjon laget fra seg selv."));
-    }
-    if paths.from_presentation && !vault.exists(&paths.manuscript) {
-        return Ok(CreateResult::MissingManuscript { path: paths.manuscript });
-    }
-    if vault.is_folder(&paths.presentation) {
-        return Ok(CreateResult::IsFolder { path: paths.presentation });
-    }
-    // En presentasjon appen har laget (med markøren), erstattes uten å spørre: den varsler selv
-    // om at endringer blir overskrevet. Andre filer med samme navn spør vi om først.
-    if vault.exists(&paths.presentation) && !overwrite {
-        let generated = vault.read_note(&paths.presentation).is_ok_and(|text| presentation_source(&text).is_some());
-        if !generated {
-            return Ok(CreateResult::Exists { path: paths.presentation });
-        }
-    }
-    let manuscript = match content {
-        Some(content) if !paths.from_presentation => content,
-        _ => vault.read_note(&paths.manuscript)?,
-    };
-    let (slides, warnings) = {
-        let bible = state.bible.lock().unwrap();
-        let bibel = match &*bible {
-            BibleState::Ready(bibel) => Some(bibel),
-            _ => None,
-        };
-        presentation_content(&manuscript, &kerygma_core::file_name(&paths.manuscript), &settings, bibel)
-    };
-    vault.write_note(&paths.presentation, &slides)?;
-    Ok(CreateResult::Created { path: paths.presentation, warnings })
+    let bible = state.bible();
+    state.workspace()?.create_presentation(&path, content.as_deref(), overwrite, bible.ready())
 }
 
-/// HTML per slide til «Vis presentasjon».
+/// HTML per slide til «Vis presentasjon» og eksporten.
 #[tauri::command]
+#[specta::specta]
 pub fn slides(state: State<AppState>, path: String, content: Option<String>) -> Result<Vec<String>> {
-    with_vault(&state, |open| {
-        let content = match content {
-            Some(content) => content,
-            None => open.vault.read_note(&path)?,
-        };
-        let images = open.vault.image_resolver(&path);
-        Ok(markdown::slides(&content, &images))
-    })
+    state.workspace()?.slides(&path, content)
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Presenter {
-    /// Manuset slidene er laget fra.
-    path: String,
-    slides: Vec<String>,
-    /// Manuset som HTML, med merkene fra `kerygma_core::presenter`.
-    manuscript: String,
-    warnings: Vec<String>,
-}
-
-/// Talervisningen: slidene lages fra manuset (også når `path` er presentasjonen), og
-/// manuset vises med det som er på hver slide merket. `content` er innholdet i editoren,
-/// så ulagrede endringer blir med; det brukes bare når `path` er selve manuset.
+/// Talervisningen: slidene laget fra manuset, og manuset med det som er på hver slide merket.
 #[tauri::command(async)]
-pub fn presenter(state: State<AppState>, path: String, content: Option<String>) -> Result<Presenter> {
-    let (vault, settings) = with_vault(&state, |open| Ok((open.vault.clone(), open.settings.clone())))?;
-    let note = match &content {
-        Some(content) => content.clone(),
-        None => vault.read_note(&path)?,
-    };
-    let paths = presentation_paths_for(&path, &note, &settings.suffix);
-    let manuscript = match content {
-        Some(content) if !paths.from_presentation => content,
-        _ => vault
-            .read_note(&paths.manuscript)
-            .map_err(|_| format!("Fant ikke manuset «{}».", paths.manuscript))?,
-    };
-    let (options, warnings) = {
-        let bible = state.bible.lock().unwrap();
-        let bibel = match &*bible {
-            BibleState::Ready(bibel) => Some(bibel),
-            _ => None,
-        };
-        slide_options(&manuscript, &settings, bibel)
-    };
-    let view = {
-        let images = vault.image_resolver(&paths.manuscript);
-        kerygma_core::presenter::presenter_view(&manuscript, &options, &images)
-    };
-    Ok(Presenter { path: paths.manuscript, slides: view.slides, manuscript: view.manuscript, warnings })
+#[specta::specta]
+pub fn presenter(state: State<'_, AppState>, path: String, content: Option<String>) -> Result<Presenter> {
+    let bible = state.bible();
+    state.workspace()?.presenter(&path, content.as_deref(), bible.ready())
 }
 
-/// Presentasjonen som eksporteres: fila selv hvis det er en presentasjon, ellers
-/// presentasjonen som er laget fra manuset. `None` når den ikke er laget ennå.
+/// Presentasjonen som eksporteres, eller `None` når den ikke er laget ennå.
 #[tauri::command]
+#[specta::specta]
 pub fn presentation_path(state: State<AppState>, path: String, content: String) -> Result<Option<String>> {
-    with_vault(&state, |open| {
-        let paths = presentation_paths_for(&path, &content, &open.settings.suffix);
-        Ok(open.vault.exists(&paths.presentation).then_some(paths.presentation))
-    })
+    Ok(state.workspace()?.presentation_path(&path, &content))
 }
 
-/// Starter en PDF-eksport: sidene som er laget før, glemmes.
+/// Starter en PDF-eksport og gir id-en den bruker i `pdf_page` og `pdf_save`.
 #[tauri::command]
-pub fn pdf_begin(state: State<AppState>) {
-    state.pdf_pages.lock().unwrap().clear();
+#[specta::specta]
+pub fn pdf_begin(state: State<AppState>) -> u32 {
+    state.pdf_exports.lock().unwrap().begin()
 }
 
-/// Lager en PDF-side av `rect` i vinduet (sliden som vises) og legger den til.
+/// Lager en PDF-side av `rect` i vinduet (sliden som vises) og legger den til eksporten.
 #[tauri::command(async)]
-pub fn pdf_page(webview: tauri::Webview, state: State<'_, AppState>, rect: crate::capture::Rect) -> Result<()> {
+#[specta::specta]
+pub fn pdf_page(webview: tauri::Webview, state: State<'_, AppState>, id: u32, rect: crate::capture::Rect) -> Result<()> {
     let page = crate::capture::pdf(&webview, rect)?;
-    state.pdf_pages.lock().unwrap().push(page);
+    let mut exports = state.pdf_exports.lock().unwrap();
+    exports.pages.get_mut(&id).ok_or("PDF-eksporten er avbrutt.")?.push(page);
     Ok(())
 }
 
 /// Slår sammen sidene, skalert til full HD, og lagrer PDF-en på `path` (absolutt sti valgt av brukeren).
 #[tauri::command(async)]
-pub fn pdf_save(state: State<'_, AppState>, path: String) -> Result<()> {
-    let pages = std::mem::take(&mut *state.pdf_pages.lock().unwrap());
+#[specta::specta]
+pub fn pdf_save(state: State<'_, AppState>, id: u32, path: String) -> Result<()> {
+    let pages = state.pdf_exports.lock().unwrap().pages.remove(&id).ok_or("PDF-eksporten er avbrutt.")?;
     let pdf = kerygma_core::pdf::merge(&pages, Some(kerygma_core::pdf::FULL_HD))?;
     write_export(&path, &pdf, "pdf")
 }
 
+/// Avbryter en PDF-eksport og glemmer sidene. Gjør ingenting hvis den allerede er lagret.
+#[tauri::command]
+#[specta::specta]
+pub fn pdf_cancel(state: State<AppState>, id: u32) {
+    state.pdf_exports.lock().unwrap().pages.remove(&id);
+}
+
 /// Lagrer en eksportert fil (PowerPoint eller HTML), med innholdet som rå bytes og stien i
 /// overskriften `path` (URL-kodet). Stien er valgt av brukeren i et lagringsvindu.
+/// Ikke med i `bindings.ts`, siden innholdet ikke er JSON.
 #[tauri::command(async)]
 pub fn save_export(request: tauri::ipc::Request<'_>) -> Result<()> {
     let tauri::ipc::InvokeBody::Raw(data) = request.body() else {
@@ -348,25 +275,28 @@ fn write_export(path: &str, data: &[u8], extension: &str) -> Result<()> {
     if !path.is_absolute() || !path.extension().is_some_and(|e| e.eq_ignore_ascii_case(extension)) {
         return Err(format!("Kan bare lagre .{extension}-filer."));
     }
-    std::fs::write(path, data).map_err(|e| format!("Kunne ikke lagre «{}»: {e}", path.display()))
+    kerygma_core::vault::write_atomic(path, data).map_err(|e| format!("Kunne ikke lagre «{}»: {e}", path.display()))
 }
 
 #[tauri::command(async)]
-pub fn lookup_verse(state: State<AppState>, input: String) -> Vec<Suggestion> {
-    match &*state.bible.lock().unwrap() {
-        BibleState::Ready(bibel) => verse_query::suggest_verse(bibel, &input),
+#[specta::specta]
+pub fn lookup_verse(state: State<'_, AppState>, input: String) -> Vec<Suggestion> {
+    match state.bible() {
+        BibleState::Ready(bibel) => verse_query::suggest_verse(&bibel, &input),
         BibleState::Loading => vec![Suggestion::message("Biblene lastes …")],
-        BibleState::Failed(message) => vec![Suggestion::message(message.clone())],
+        BibleState::Failed(message) => vec![Suggestion::message(message)],
     }
 }
 
 /// Verset som markdown-sitat ved markøren, som `toQuote`.
 #[tauri::command]
+#[specta::specta]
 pub fn quote_verse(verse: String, before: String, after: String) -> String {
     verse_query::to_quote(&verse, &before, &after)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_settings(state: State<AppState>) -> Settings {
     state.settings()
 }
@@ -374,22 +304,21 @@ pub fn get_settings(state: State<AppState>) -> Settings {
 /// Lagrer innstillingene i vaulten og bygger bibel-registeret på nytt ved behov.
 /// Gir en advarsel hvis innstillingene for bibel er ugyldige.
 #[tauri::command(async)]
-pub fn set_settings(state: State<AppState>, settings: Settings) -> Result<Vec<String>> {
-    let settings = settings.sanitized();
-    let path = {
-        let mut guard = state.vault.lock().unwrap();
-        let open = guard.as_mut().ok_or("Ingen mappe er åpen.")?;
-        open.settings = settings.clone();
-        open.settings_path()
-    };
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("Kunne ikke lagre innstillingene: {e}"))?;
+#[specta::specta]
+pub fn set_settings(state: State<'_, AppState>, settings: Settings) -> Result<Vec<String>> {
+    let mut workspace = state.workspace()?;
+    workspace.save_settings(settings)?;
+    let settings = workspace.settings.clone();
+    if let Some(open) = state.vault.lock().unwrap().as_mut() {
+        // Samme vault som da innstillingene ble lagret (den kan ha blitt byttet imens).
+        if open.workspace.vault.root() == workspace.vault.root() {
+            open.workspace.settings = settings.clone();
+        }
     }
-    std::fs::write(&path, settings.to_json()).map_err(|e| format!("Kunne ikke lagre innstillingene: {e}"))?;
     Ok(state.configure_bible(&settings).err().into_iter().collect())
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum BibleStatus {
     Loading,
@@ -398,111 +327,35 @@ pub enum BibleStatus {
 }
 
 #[tauri::command(async)]
-pub fn bible_status(state: State<AppState>) -> BibleStatus {
-    match &*state.bible.lock().unwrap() {
+#[specta::specta]
+pub fn bible_status(state: State<'_, AppState>) -> BibleStatus {
+    match state.bible() {
         BibleState::Loading => BibleStatus::Loading,
         BibleState::Ready(bibel) => BibleStatus::Ready { ids: bibel.ids().iter().map(|s| s.to_string()).collect() },
-        BibleState::Failed(message) => BibleStatus::Failed { message: message.clone() },
+        BibleState::Failed(message) => BibleStatus::Failed { message },
     }
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportTarget {
-    /// Den absolutte stien til .docx-fila.
-    file: String,
-    name: String,
-    /// Manuset den blir til, relativt til vault-roten.
-    path: String,
-    exists: bool,
-    is_folder: bool,
-}
-
-/// Hvor hver Word-fil havner: i mappa brukeren valgte i treet (`folder_chosen`), ellers i
-/// «Mappe for importerte Word-manus», eller i mappa til fila som er åpen. Grensesnittet
-/// spør før det overskriver.
+/// Hvor hver Word-fil havner. Grensesnittet spør før det overskriver.
 #[tauri::command]
+#[specta::specta]
 pub fn import_targets(
     state: State<AppState>,
     files: Vec<String>,
     current_folder: String,
     folder_chosen: bool,
 ) -> Result<Vec<ImportTarget>> {
-    with_vault(&state, |open| {
-        let folder = match open.settings.import_folder.trim() {
-            folder if !folder.is_empty() && !folder_chosen => folder.trim_matches('/').to_string(),
-            _ => current_folder.trim_matches('/').to_string(),
-        };
-        let file_names: Vec<String> = files
-            .iter()
-            .map(|file| std::path::Path::new(file).file_name().unwrap_or_default().to_string_lossy().into_owned())
-            .collect();
-        let names = kerygma_core::word::note_names(&file_names);
-        Ok(files
-            .into_iter()
-            .zip(names)
-            .map(|(file, name)| {
-                let path = if folder.is_empty() { format!("{name}.md") } else { format!("{folder}/{name}.md") };
-                ImportTarget {
-                    exists: open.vault.exists(&path),
-                    is_folder: open.vault.is_folder(&path),
-                    file,
-                    name,
-                    path,
-                }
-            })
-            .collect())
-    })
-}
-
-#[derive(serde::Deserialize)]
-pub struct ImportRequest {
-    file: String,
-    path: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportedFile {
-    name: String,
-    path: Option<String>,
-    quotes: usize,
-    /// Sitater med `[!warning|sjekk]`.
-    uncertain: usize,
-    unmatched: Vec<String>,
-    error: Option<String>,
+    Ok(state.workspace()?.import_targets(&files, &current_folder, folder_chosen))
 }
 
 /// Gjør Word-filene om til markdown. Kjøres utenfor hovedtråden, siden søk i Bibelen kan ta litt tid.
 #[tauri::command(async)]
+#[specta::specta]
 pub fn import_word(state: State<'_, AppState>, files: Vec<ImportRequest>) -> Result<Vec<ImportedFile>> {
-    let vault = with_vault(&state, |open| Ok(open.vault.clone()))?;
-    let bible = state.bible.lock().unwrap();
-    let bibel = match &*bible {
-        BibleState::Ready(bibel) => bibel,
-        BibleState::Loading => return Err("Biblene lastes fortsatt. Prøv igjen om litt.".to_string()),
-        BibleState::Failed(message) => return Err(format!("Kunne ikke laste biblene: {message}")),
-    };
-    let options = kerygma_core::word::ConvertOptions::default();
-    Ok(files
-        .into_iter()
-        .map(|request| {
-            let name = kerygma_core::path_name(&request.path);
-            let result = std::fs::read(&request.file)
-                .map_err(|e| format!("kunne ikke lese fila: {e}"))
-                .and_then(|data| kerygma_core::word::import_docx(&data, bibel, &options))
-                .and_then(|result| vault.write_note(&request.path, &result.markdown).map(|_| result));
-            match result {
-                Ok(result) => ImportedFile {
-                    name,
-                    path: Some(request.path),
-                    quotes: result.quotes.len(),
-                    uncertain: result.quotes.iter().filter(|q| q.warning.is_some()).count(),
-                    unmatched: result.unmatched,
-                    error: None,
-                },
-                Err(error) => ImportedFile { name, path: None, quotes: 0, uncertain: 0, unmatched: vec![], error: Some(error) },
-            }
-        })
-        .collect())
+    let workspace = state.workspace()?;
+    match state.bible() {
+        BibleState::Ready(bibel) => Ok(workspace.import_word(&files, &bibel)),
+        BibleState::Loading => Err("Biblene lastes fortsatt. Prøv igjen om litt.".to_string()),
+        BibleState::Failed(message) => Err(format!("Kunne ikke laste biblene: {message}")),
+    }
 }

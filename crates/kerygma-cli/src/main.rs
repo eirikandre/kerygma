@@ -4,10 +4,11 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use kerygma_core::bible::{Bibel, BibelConfig};
-use kerygma_core::presentation::{presentation_content, presentation_paths_for};
 use kerygma_core::settings::Settings;
 use kerygma_core::verse_query::suggest_verse;
+use kerygma_core::vault::Vault;
 use kerygma_core::word::{import_docx, note_name, ConvertOptions};
+use kerygma_core::workspace::{CreateResult, Workspace};
 
 const HELP: &str = "\
 kerygma - manus og presentasjoner fra terminalen
@@ -112,14 +113,11 @@ fn make_presentation(options: &Options) -> Result<(), String> {
     let [path] = options.positional.as_slice() else {
         return Err("bruk: kerygma lag-presentasjon <manus.md>".to_string());
     };
-    let path = path.replace('\\', "/");
-    let note = std::fs::read_to_string(&path).unwrap_or_default();
-    let paths = presentation_paths_for(&path, &note, &options.settings.suffix);
-    if paths.manuscript == paths.presentation {
-        return Err(format!("«{path}» er merket som en presentasjon laget fra seg selv."));
-    }
-    let manuscript = std::fs::read_to_string(&paths.manuscript)
-        .map_err(|e| format!("kunne ikke lese «{}»: {e}", paths.manuscript))?;
+    // Mappa til manuset blir vaulten, så stiene blir som i appen.
+    let path = PathBuf::from(path.replace('\\', "/"));
+    let folder = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let file = path.file_name().ok_or_else(|| format!("«{}» er ikke en fil", path.display()))?.to_string_lossy();
+    let workspace = Workspace::new(Vault::open(folder)?, options.settings.clone());
 
     let bibel = if options.settings.add_translation {
         match load_bibel(&options.bibles, &options.settings) {
@@ -132,16 +130,24 @@ fn make_presentation(options: &Options) -> Result<(), String> {
     } else {
         None
     };
-    let source = kerygma_core::file_name(&paths.manuscript);
-    let (content, warnings) = presentation_content(&manuscript, &source, &options.settings, bibel.as_ref());
-    for warning in warnings {
-        eprintln!("kerygma: {warning}");
-    }
     if options.write {
-        std::fs::write(&paths.presentation, content)
-            .map_err(|e| format!("kunne ikke skrive «{}»: {e}", paths.presentation))?;
-        eprintln!("Presentasjon laget: {}", paths.presentation);
+        // Skriver over det som finnes, uten å spørre.
+        match workspace.create_presentation(&file, None, true, bibel.as_ref())? {
+            CreateResult::Created { path, warnings } => {
+                for warning in warnings {
+                    eprintln!("kerygma: {warning}");
+                }
+                eprintln!("Presentasjon laget: {}", folder.join(path).display());
+            }
+            CreateResult::MissingManuscript { path } => return Err(format!("fant ikke manuset «{path}»")),
+            CreateResult::IsFolder { path } => return Err(format!("«{path}» er en mappe")),
+            CreateResult::Exists { path } => return Err(format!("«{path}» finnes allerede")),
+        }
     } else {
+        let (_, content, warnings) = workspace.presentation(&file, None, bibel.as_ref())?;
+        for warning in warnings {
+            eprintln!("kerygma: {warning}");
+        }
         print!("{content}");
     }
     Ok(())

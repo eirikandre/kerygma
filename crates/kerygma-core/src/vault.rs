@@ -16,6 +16,7 @@ use crate::presentation::{presentation_paths, presentation_paths_for};
 pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "avif"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Kind {
     Folder,
     Note,
@@ -23,6 +24,7 @@ pub enum Kind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Tree {
     /// Navnet som vises: manus uten `.md`, andre filer med filendelse.
     pub name: String,

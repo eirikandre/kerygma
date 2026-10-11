@@ -61,6 +61,7 @@ pub fn to_quote(verse: &str, text_before: &str, text_after: &str) -> String {
 
 /// Et forslag i oppslagsvinduet: tekst som kan settes inn, eller en melding.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Suggestion {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,

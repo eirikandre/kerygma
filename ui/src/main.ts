@@ -1,9 +1,8 @@
 // Appen: treet til venstre, én fil om gangen i editoren til høyre.
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { api, basename, errorMessage, folderOf, presentationSource, type Tree } from "./api.ts";
+import { api, basename, errorMessage, events, folderOf, presentationSource, type Tree } from "./api.ts";
 import { loadAppearance, onAppearanceChange, zoomWithWheel } from "./appearance.ts";
 import { confirmDelete, confirmOverwrite, notice } from "./dialogs.ts";
 import { Editor } from "./editor.ts";
@@ -24,7 +23,7 @@ import { importWord } from "./importReport.ts";
 import { present } from "./present.ts";
 import { monitorCount, otherMonitor, presenterRunning, startPresenter, stopPresenter } from "./presenter.ts";
 import { setSafeHtml } from "./sanitize.ts";
-import { SearchView, searchTerms } from "./search.ts";
+import { SearchView } from "./search.ts";
 import { openSettings } from "./settings.ts";
 import { TreeView } from "./tree.ts";
 import { openVerseModal } from "./verseModal.ts";
@@ -270,7 +269,7 @@ async function openNoteAt(path: string, line?: number) {
     state.mode = "edit";
     await showMode();
   }
-  editor.revealLine(line, searchTerms($<HTMLInputElement>("search").value));
+  editor.revealLine(line, search.terms);
 }
 
 function closeNote() {
@@ -677,10 +676,10 @@ $("show-sidebar").addEventListener("click", () => command("toggle-sidebar"));
 $("empty-open").addEventListener("click", () => command("open-vault"));
 $("title").addEventListener("click", () => startTitleRename());
 
-void listen<string>("menu", (event) => command(event.payload));
+void events.menu.listen((event) => command(event.payload));
 
 /** Filer endret utenfra (Obsidian, Finder, Word-import). */
-void listen<string[]>("vault-changed", (event) => {
+void events.vaultChanged.listen((event) => {
   search.refresh();
   void run(async () => {
     await refreshTree();
@@ -710,12 +709,12 @@ void listen<string[]>("vault-changed", (event) => {
   });
 });
 
-void listen("bible-ready", () => {
+void events.bibleReady.listen(() => {
   void api.bibleStatus().then((status) => {
     if (status.kind === "failed") notice(`Kunne ikke laste biblene: ${status.message}`, { error: true });
   });
 });
-void listen<string>("bible-warning", (event) => notice(event.payload, { error: true }));
+void events.bibleWarning.listen((event) => notice(event.payload, { error: true }));
 
 // Lagre før vinduet lukkes.
 void getCurrentWindow().onCloseRequested(async () => {
