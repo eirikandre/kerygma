@@ -129,6 +129,36 @@ mod tests {
         );
     }
 
+    /// Hele kjeden, som grensesnittet ser den: hver slide skal ha merkene sine i HTML-en til
+    /// manuset, i par og i rekkefølge. Fanger opp om comrak (eller noe annet) en gang
+    /// endrer eller fjerner tegnene, så markeringen i talervisningen ikke blir borte stille.
+    #[test]
+    fn alle_slides_har_merkene_sine_i_html_en() {
+        let manuscript = "---\ntags: [påske]\n---\n# Påske\n\nInnledning med *kursiv* og **fet** tekst. \
+            For så har Gud elsket verden (Joh 3,16)\n\n\
+            > [!note] Til ettertanke\n> Herren er min hyrde, jeg mangler ingen ting. (Sal 23,1)\n\n\
+            > Gud er kjærlighet. (1 Joh 4,8)\n> God is love. (1 John 4:8)\n\n\
+            - Et punkt med ==utheving== og ![[bilde.png]]\n\n\
+            ## Del 2\n\n%% en kommentar %%\n\nSlutt. «Jeg er veien» (Joh 14,6)\n";
+        let options = SlideOptions { max_chars: Some(40), ..Default::default() };
+        let view = presenter_view(manuscript, &options, NO_IMAGES);
+        assert!(view.slides.len() >= 6, "{:?}", view.slides);
+        let chars: Vec<u32> = view.manuscript.chars().map(u32::from).collect();
+        for i in 0..view.slides.len() as u32 {
+            let starts = chars.iter().filter(|&&c| c == START + i).count();
+            let ends = chars.iter().filter(|&&c| c == END + i).count();
+            assert!(starts > 0, "slide {i} mangler merket i HTML-en:\n{}", view.manuscript);
+            assert_eq!(starts, ends, "slide {i} har ikke like mange start- og sluttmerker");
+            let first_start = chars.iter().position(|&c| c == START + i).unwrap();
+            let first_end = chars.iter().position(|&c| c == END + i).unwrap();
+            assert!(first_start < first_end, "slide {i} slutter før den starter");
+        }
+        // Formateringen virker fortsatt med merkene i teksten.
+        assert!(view.manuscript.contains("<em>kursiv</em>"));
+        assert!(view.manuscript.contains("<strong>fet</strong>"));
+        assert!(view.manuscript.contains("<mark>utheving</mark>"));
+    }
+
     #[test]
     fn manuset_blir_html_uten_a_odelegge_formateringen() {
         let view = presenter_view("# Tittel\n\n**Herren** er _god_ (Sal 23,1)\n", &SlideOptions::default(), NO_IMAGES);
