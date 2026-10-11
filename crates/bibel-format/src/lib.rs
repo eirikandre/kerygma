@@ -5,7 +5,7 @@
 //! inn i en kjørbar med `include_bytes!`, slik at oppslag ikke krever disk-IO.
 //!
 //! ```text
-//! Header      magic "NB88" (bare en filsignatur), versjon u16, bookCount u16, chapterCount u32,
+//! Header      magic "BIBL", versjon u16, bookCount u16, chapterCount u32,
 //!             verseCount u32, offsets u32 x5 (books, chapters, verses, strings, text),
 //!             textLen u32, idStr u32, titleStr u32, copyrightStr u32, numbersOff u32
 //! Books[]     bookNo u8, pad u8, chapterCount u16, firstChapter u32,
@@ -30,8 +30,8 @@ use std::fmt;
 
 pub mod books;
 
-pub const MAGIC: [u8; 4] = *b"NB88";
-pub const VERSION: u16 = 3;
+pub const MAGIC: [u8; 4] = *b"BIBL";
+pub const VERSION: u16 = 4;
 
 const HEADER_LEN: usize = 56;
 const BOOK_LEN: usize = 20;
@@ -49,7 +49,7 @@ impl fmt::Display for FormatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             FormatError::TooShort => write!(f, "datafila er for kort"),
-            FormatError::BadMagic => write!(f, "ukjent filsignatur"),
+            FormatError::BadMagic => write!(f, "ukjent filsignatur (ventet \"BIBL\")"),
             FormatError::BadVersion(v) => write!(f, "ustøttet formatversjon {v}"),
             FormatError::Corrupt(what) => write!(f, "ødelagt datafil: {what}"),
         }
@@ -651,9 +651,17 @@ mod tests {
         bytes[0] = b'X';
         assert_eq!(Bible::parse(&bytes).unwrap_err(), FormatError::BadMagic);
         let mut bytes = sample();
-        bytes[4] = 1; // v1-fil mot v3-leser
-        assert!(matches!(Bible::parse(&bytes), Err(FormatError::BadVersion(_))));
+        bytes[4] = 3; // v3-fil mot v4-leser
+        assert_eq!(Bible::parse(&bytes).unwrap_err(), FormatError::BadVersion(3));
         let bytes = sample();
         assert!(Bible::parse(&bytes[..HEADER_LEN + 4]).is_err());
+    }
+
+    #[test]
+    fn avviser_gammel_signatur() {
+        // Filer fra før versjon 4 begynte med "NB88".
+        let mut bytes = sample();
+        bytes[0..4].copy_from_slice(b"NB88");
+        assert_eq!(Bible::parse(&bytes).unwrap_err(), FormatError::BadMagic);
     }
 }
