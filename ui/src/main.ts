@@ -67,6 +67,25 @@ function loadManuscriptMode(): Mode {
   }
 }
 
+// --- Navigasjonstreet kan skjules ------------------------------------------
+
+const SIDEBAR_KEY = "kerygma.sidebarHidden";
+
+function setSidebarHidden(hidden: boolean) {
+  $("app").classList.toggle("sidebar-hidden", hidden);
+  try {
+    localStorage.setItem(SIDEBAR_KEY, String(hidden));
+  } catch {
+    // Uten lagring huskes valget bare til appen lukkes.
+  }
+}
+
+try {
+  if (localStorage.getItem(SIDEBAR_KEY) === "true") $("app").classList.add("sidebar-hidden");
+} catch {
+  // Treet vises.
+}
+
 const editor = new Editor(
   $("editor"),
   () => {
@@ -343,6 +362,7 @@ async function newNote(folder?: string) {
 
 async function newFolder(parent: string) {
   const path = await api.createFolder(parent, "");
+  setSidebarHidden(false); // Navnet skrives i treet.
   await refreshTree();
   tree.setActive(state.path);
   tree.startRename(path);
@@ -566,6 +586,7 @@ const commands: Record<string, () => void | Promise<void>> = {
   "open-vault": () => openVault(),
   "new-note": () => newNote(),
   "new-folder": () => newFolder(tree.folder),
+  "toggle-sidebar": () => setSidebarHidden(!$("app").classList.contains("sidebar-hidden")),
   "import-word": () => importWordTo(state.path ? folderOf(state.path) : "", false),
   settings: () => openSettings(),
   "toggle-preview": () => togglePreview(),
@@ -577,8 +598,10 @@ const commands: Record<string, () => void | Promise<void>> = {
   "export-html": () => exportPresentation("html"),
   "insert-verse": () => insertVerse(),
   search: () => {
-    if (state.vaultPath) search.focus();
-    else notice("Åpne en mappe først.");
+    if (state.vaultPath) {
+      setSidebarHidden(false);
+      search.focus();
+    } else notice("Åpne en mappe først.");
   },
 };
 
@@ -602,6 +625,7 @@ const SHORTCUTS: Array<{ key: string; shift: boolean; id: string }> = [
   { key: "b", shift: true, id: "insert-verse" },
   { key: ",", shift: false, id: "settings" },
   { key: "f", shift: true, id: "search" },
+  { key: "t", shift: true, id: "toggle-sidebar" },
   // Cmd/Ctrl + Alt + Shift + P (talervisning i eget vindu) håndteres for seg, se under.
 ];
 
@@ -648,6 +672,8 @@ $<HTMLSelectElement>("heading").addEventListener("change", (event) => {
 });
 $("new-note").addEventListener("click", () => command("new-note"));
 $("new-folder").addEventListener("click", () => command("new-folder"));
+$("hide-sidebar").addEventListener("click", () => command("toggle-sidebar"));
+$("show-sidebar").addEventListener("click", () => command("toggle-sidebar"));
 $("empty-open").addEventListener("click", () => command("open-vault"));
 $("title").addEventListener("click", () => startTitleRename());
 

@@ -88,6 +88,8 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .item(&item(app, "export-html", "Eksporter presentasjonen som HTML …", "")?)
         .build()?;
     let window = SubmenuBuilder::new(app, "Vindu")
+        .item(&item(app, "toggle-sidebar", "Vis eller skjul navigasjonstreet", "CmdOrCtrl+Shift+T")?)
+        .separator()
         .item(&PredefinedMenuItem::minimize(app, Some("Minimer"))?)
         .item(&PredefinedMenuItem::fullscreen(app, Some("Fullskjerm"))?)
         .build()?;

@@ -352,7 +352,24 @@ button:hover {
 }
 
 /* --- Editor og lesevisning --- */
+#app.sidebar-hidden #sidebar {
+  display: none;
+}
+#show-sidebar {
+  display: none;
+  position: absolute;
+  top: 9px;
+  left: 8px;
+  z-index: 1;
+}
+#app.sidebar-hidden #show-sidebar {
+  display: inline-flex;
+}
+#app.sidebar-hidden #toolbar {
+  padding-left: 48px;
+}
 #main {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
