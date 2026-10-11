@@ -100,6 +100,7 @@ export const api = {
   createNote: (folder: string) => invoke<string>("create_note", { folder }),
   createFolder: (parent: string, name: string) => invoke<string>("create_folder", { parent, name }),
   rename: (path: string, newName: string) => invoke<string>("rename", { path, newName }),
+  moveTo: (path: string, folder: string) => invoke<string>("move_to", { path, folder }),
   delete: (path: string) => invoke<void>("delete", { path }),
   search: (query: string) => invoke<SearchResult[]>("search", { query }),
   renderNote: (path: string, content: string) => invoke<string>("render_note", { path, content }),

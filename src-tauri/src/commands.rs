@@ -146,6 +146,11 @@ pub fn rename(state: State<AppState>, path: String, new_name: String) -> Result<
 }
 
 #[tauri::command]
+pub fn move_to(state: State<AppState>, path: String, folder: String) -> Result<String> {
+    with_vault(&state, |open| open.vault.move_to(&path, &folder, &open.settings.suffix))
+}
+
+#[tauri::command]
 pub fn delete(state: State<AppState>, path: String) -> Result<()> {
     with_vault(&state, |open| open.vault.delete(&path))
 }

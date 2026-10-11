@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 
 use serde::Serialize;
 
-use crate::presentation::presentation_paths_for;
+use crate::presentation::{presentation_paths, presentation_paths_for};
 
 pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "avif"];
 
@@ -252,6 +252,44 @@ impl Vault {
         Ok(new_path)
     }
 
+    /// Flytter fila eller mappa til `folder` (tom for roten) og gir den nye stien.
+    /// Et manus tar med seg presentasjonen sin, som ellers ville dukket opp i treet.
+    pub fn move_to(&self, path: &str, folder: &str, suffix: &str) -> Result<String, String> {
+        let path = path.trim_matches('/');
+        let folder = folder.trim_matches('/');
+        if path.is_empty() {
+            return Err("Kan ikke flytte hele vaulten.".to_string());
+        }
+        if folder == path || folder.starts_with(&format!("{path}/")) {
+            return Err(format!("Kan ikke flytte «{path}» inn i seg selv."));
+        }
+        if !self.resolve(folder)?.is_dir() {
+            return Err(format!("Fant ikke mappa «{folder}»."));
+        }
+        let name = path.rsplit('/').next().unwrap_or(path);
+        let new_path = join(folder, name);
+        if new_path == path {
+            return Ok(new_path);
+        }
+        let from = self.resolve(path)?;
+        let to = self.resolve(&new_path)?;
+        if to.exists() {
+            return Err(format!("«{new_path}» finnes allerede."));
+        }
+        let presentation = (path.ends_with(".md") && from.is_file()).then(|| {
+            let old = presentation_paths(path, suffix).presentation;
+            (old.clone(), presentation_paths(&new_path, suffix).presentation)
+        });
+        std::fs::rename(&from, &to).map_err(|e| format!("Kunne ikke flytte «{path}»: {e}"))?;
+        if let Some((old, new)) = presentation {
+            let (old, new) = (self.resolve(&old)?, self.resolve(&new)?);
+            if old != from && old.is_file() && !new.exists() {
+                std::fs::rename(&old, &new).map_err(|e| format!("Kunne ikke flytte presentasjonen: {e}"))?;
+            }
+        }
+        Ok(new_path)
+    }
+
     /// Legger fila eller mappa i papirkurven.
     pub fn delete(&self, path: &str) -> Result<(), String> {
         if path.trim_matches('/').is_empty() {
@@ -461,6 +499,28 @@ mod tests {
         assert_eq!(vault.resolve_link("Påske#Innledning", "b.md").as_deref(), Some("Prekener/Påske.md"));
         assert_eq!(vault.resolve_link("A", "Prekener/Påske.md").as_deref(), Some("A.md"));
         assert_eq!(encode_uri_component("/a b/ø.png"), "%2Fa%20b%2F%C3%B8.png");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn flytte_filer_og_mapper() {
+        let (dir, vault) = temp_vault("flytte");
+        let suffix = " - presentasjon";
+        std::fs::write(dir.join("A - presentasjon.md"), "# A").unwrap();
+        assert_eq!(vault.move_to("A.md", "Prekener", suffix).unwrap(), "Prekener/A.md");
+        assert!(dir.join("Prekener/A - presentasjon.md").is_file());
+        assert!(!dir.join("A - presentasjon.md").exists());
+
+        assert_eq!(vault.move_to("Prekener/bilder", "", suffix).unwrap(), "bilder");
+        assert!(dir.join("bilder/kart.png").is_file());
+        assert_eq!(vault.move_to("logo.png", "", suffix).unwrap(), "logo.png");
+
+        assert!(vault.move_to("Prekener", "Prekener", suffix).is_err());
+        std::fs::create_dir_all(dir.join("Prekener/Under")).unwrap();
+        assert!(vault.move_to("Prekener", "Prekener/Under", suffix).is_err());
+        std::fs::write(dir.join("Påske.md"), "").unwrap();
+        assert!(vault.move_to("Påske.md", "Prekener", suffix).is_err());
+        assert!(vault.move_to("b.md", "Finnes ikke", suffix).is_err());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

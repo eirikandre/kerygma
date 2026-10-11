@@ -8,6 +8,8 @@ export interface TreeActions {
   newNote(folder: string): void;
   newFolder(parent: string): void;
   rename(path: string, newName: string): Promise<void>;
+  /** Flytter fila eller mappa til `folder` (tom for roten). */
+  move(path: string, folder: string): void;
   delete(path: string, name: string): void;
   createPresentation(path: string): void;
   exportPresentation(path: string, kind: ExportKind): void;
@@ -21,11 +23,24 @@ export class TreeView {
   private active?: string;
   /** Feltet for nytt navn. Treet tegnes på nytt når filer endres, og feltet skal overleve det. */
   private renaming?: { path: string; input: HTMLInputElement };
+  /** Fila eller mappa som dras, og mappa den slippes i ("" er roten). */
+  private dragging?: string;
+  private dropFolder?: string;
+  private expandTimer?: number;
+  private expandTimerFolder?: string;
 
   constructor(
     private el: HTMLElement,
     private actions: TreeActions,
-  ) {}
+  ) {
+    el.addEventListener("dragstart", (event) => this.dragStart(event));
+    el.addEventListener("dragover", (event) => this.dragOver(event));
+    el.addEventListener("dragleave", (event) => {
+      if (!(event.relatedTarget instanceof Node && el.contains(event.relatedTarget))) this.setDropFolder(undefined);
+    });
+    el.addEventListener("drop", (event) => this.drop(event));
+    el.addEventListener("dragend", () => this.endDrag());
+  }
 
   /** Hvilke mapper som er åpne, huskes per vault. */
   setVault(vaultPath: string) {
@@ -42,10 +57,12 @@ export class TreeView {
     const renaming = this.renaming;
     const hadFocus = renaming !== undefined && document.activeElement === renaming.input;
     this.el.replaceChildren(this.list(tree.children, 0));
+    this.showDropFolder();
     if (renaming) {
       const label = this.label(renaming.path);
       if (label) {
         label.replaceWith(renaming.input);
+        notDraggable(renaming.input);
         if (hadFocus) renaming.input.focus();
       } else {
         this.renaming = undefined; // Fila finnes ikke lenger.
@@ -73,6 +90,7 @@ export class TreeView {
     input.className = "tree-rename";
     input.value = name;
     label.replaceWith(input);
+    notDraggable(input);
     this.renaming = { path, input };
     input.focus();
     input.select();
@@ -108,6 +126,81 @@ export class TreeView {
     }
   }
 
+  private dragStart(event: DragEvent) {
+    const row = (event.target as Element).closest<HTMLElement>(".tree-item");
+    const path = row?.dataset.path;
+    if (!path || !event.dataTransfer || this.renaming) {
+      event.preventDefault();
+      return;
+    }
+    this.dragging = path;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(DRAG_TYPE, path);
+  }
+
+  private dragOver(event: DragEvent) {
+    // Filer fra Finder/Utforsker og tekst fra editoren slippes ikke i treet.
+    if (!this.dragging || !event.dataTransfer?.types.includes(DRAG_TYPE)) return;
+    const row = (event.target as Element).closest<HTMLElement>(".tree-item");
+    const folder = dropFolderFor(row);
+    if (!canMove(this.dragging, folder)) {
+      event.dataTransfer.dropEffect = "none";
+      this.setDropFolder(undefined);
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    this.setDropFolder(folder);
+    // En lukket mappe åpnes når man holder over den en stund.
+    const closed = row?.classList.contains("folder") && !this.expanded.has(folder) ? folder : undefined;
+    if (closed !== this.expandTimerFolder) {
+      window.clearTimeout(this.expandTimer);
+      this.expandTimerFolder = closed;
+      if (closed !== undefined) {
+        this.expandTimer = window.setTimeout(() => {
+          this.expanded.add(closed);
+          this.saveExpanded();
+          if (this.tree) this.render(this.tree);
+        }, EXPAND_DELAY_MS);
+      }
+    }
+  }
+
+  private drop(event: DragEvent) {
+    const path = this.dragging;
+    const folder = this.dropFolder;
+    this.endDrag();
+    if (!path || folder === undefined || !event.dataTransfer?.types.includes(DRAG_TYPE)) return;
+    event.preventDefault();
+    if (canMove(path, folder)) {
+      if (folder) this.expanded.add(folder);
+      this.saveExpanded();
+      this.actions.move(path, folder);
+    }
+  }
+
+  private endDrag() {
+    this.dragging = undefined;
+    window.clearTimeout(this.expandTimer);
+    this.expandTimerFolder = undefined;
+    this.setDropFolder(undefined);
+  }
+
+  private setDropFolder(folder: string | undefined) {
+    if (folder === this.dropFolder) return;
+    this.dropFolder = folder;
+    this.showDropFolder();
+  }
+
+  /** Markerer mappa det slippes i. Roten markeres som hele treet. */
+  private showDropFolder() {
+    for (const row of this.el.querySelectorAll(".tree-item.drop-target")) row.classList.remove("drop-target");
+    this.el.classList.toggle("drop-root", this.dropFolder === "");
+    if (this.dropFolder) {
+      this.el.querySelector(`.tree-item[data-path="${CSS.escape(this.dropFolder)}"]`)?.classList.add("drop-target");
+    }
+  }
+
   private list(children: Tree[], depth: number): HTMLElement {
     const ul = document.createElement("ul");
     ul.className = "tree-list";
@@ -122,6 +215,7 @@ export class TreeView {
     row.dataset.path = node.path;
     row.style.paddingLeft = `${8 + depth * 14}px`;
     row.setAttribute("role", "treeitem");
+    row.draggable = true;
     if (node.path === this.active) row.classList.add("active");
 
     const icon = document.createElement("span");
@@ -172,6 +266,27 @@ export class TreeView {
     }
     return li;
   }
+}
+
+const DRAG_TYPE = "application/x-kerygma-path";
+const EXPAND_DELAY_MS = 700;
+
+/** Mappa det slippes i: mappa man holder over, mappa fila ligger i, eller roten. */
+function dropFolderFor(row: HTMLElement | null): string {
+  const path = row?.dataset.path;
+  if (!path) return "";
+  return row.classList.contains("folder") ? path : (ancestors(path).at(-1) ?? "");
+}
+
+/** Kan `path` flyttes til `folder`? Ikke inn i seg selv, og ikke dit den allerede ligger. */
+function canMove(path: string, folder: string): boolean {
+  return folder !== path && !folder.startsWith(`${path}/`) && (ancestors(path).at(-1) ?? "") !== folder;
+}
+
+/** Feltet for nytt navn ligger i en rad som ellers kan dras; da kan ikke teksten merkes med musa. */
+function notDraggable(input: HTMLInputElement) {
+  const row = input.closest<HTMLElement>(".tree-item");
+  if (row) row.draggable = false;
 }
 
 /** Mappene en sti ligger i: "a/b/c.md" gir "a" og "a/b". */

@@ -97,11 +97,20 @@ const tree = new TreeView($("tree"), {
   newNote: (folder) => void run(() => newNote(folder)),
   newFolder: (parent) => void run(() => newFolder(parent)),
   rename: (path, name) => run(() => renamePath(path, name)),
+  move: (path, folder) => void run(() => movePath(path, folder)),
   delete: (path, name) => void run(() => deletePath(path, name)),
   createPresentation: (path) => void run(() => createPresentation(path)),
   exportPresentation: (path, kind) => void run(() => exportPresentation(kind, path)),
   importWord: (folder) => void run(() => importWordTo(folder, true)),
 });
+
+// Tauri tar ikke imot filer som slippes i vinduet (da virker dra og slipp i treet på
+// Windows), så webvisningen må ikke åpne dem i stedet.
+for (const type of ["dragover", "drop"]) {
+  document.addEventListener(type, (event) => {
+    if ((event as DragEvent).dataTransfer?.types.includes("Files")) event.preventDefault();
+  });
+}
 
 /** Kjører en handling og viser feilen som en melding. */
 async function run(action: () => Promise<void>) {
@@ -339,7 +348,15 @@ async function newFolder(parent: string) {
 }
 
 async function renamePath(path: string, newName: string) {
-  const newPath = await api.rename(path, newName);
+  await moved(path, await api.rename(path, newName));
+}
+
+async function movePath(path: string, folder: string) {
+  await moved(path, await api.moveTo(path, folder));
+}
+
+/** Fila eller mappa har fått ny sti: følg etter med fila som er åpen. */
+async function moved(path: string, newPath: string) {
   if (state.path === path) {
     state.path = newPath;
     $("title").textContent = basename(newPath);

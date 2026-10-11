@@ -139,6 +139,7 @@ pub fn run() {
             commands::create_note,
             commands::create_folder,
             commands::rename,
+            commands::move_to,
             commands::delete,
             commands::search,
             commands::render_note,
