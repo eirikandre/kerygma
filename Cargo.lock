@@ -2250,6 +2250,7 @@ name = "kerygma-core"
 version = "0.1.0"
 dependencies = [
  "bibel-core",
+ "bibel-format",
  "comrak",
  "fancy-regex",
  "lopdf",

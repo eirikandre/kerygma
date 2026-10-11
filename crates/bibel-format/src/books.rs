@@ -1,8 +1,7 @@
 //! Felles bokidentifikatorer.
 //!
-//! Datasettene bruker to ulike kodeverk for de samme bøkene: NB88 og KJV bruker
-//! OSIS-id-er (`John`, `Ps`, `Song`), mens bibel.no bruker USFM (`JHN`, `PSA`,
-//! `SNG`). Tabellen her knytter formene sammen, slik at `john3:16` slår opp i alle
+//! Datasettene kan bruke to ulike kodeverk for de samme bøkene: OSIS-id-er (`John`,
+//! `Ps`, `Song`, som nb30 og KJV) eller USFM (`JHN`, `PSA`, `SNG`). Tabellen her knytter formene sammen, slik at `john3:16` slår opp i alle
 //! oversettelsene uansett hvilket kodeverk den enkelte bruker.
 //!
 //! Paret er entydig: ingen USFM-id er lik en annen boks OSIS-id.

@@ -5,7 +5,7 @@
 //! inn i en kjørbar med `include_bytes!`, slik at oppslag ikke krever disk-IO.
 //!
 //! ```text
-//! Header      magic "NB88", versjon u16, bookCount u16, chapterCount u32,
+//! Header      magic "NB88" (bare en filsignatur), versjon u16, bookCount u16, chapterCount u32,
 //!             verseCount u32, offsets u32 x5 (books, chapters, verses, strings, text),
 //!             textLen u32, idStr u32, titleStr u32, copyrightStr u32, numbersOff u32
 //! Books[]     bookNo u8, pad u8, chapterCount u16, firstChapter u32,
@@ -18,8 +18,8 @@
 //! ```
 //!
 //! Kapitler er sammenhengende og starter alltid på 1. Vers gjør det stort sett
-//! også, men ikke alltid: Bibel 2024 slår sammen enkelte versepar («15-16»), og da
-//! finnes ikke det andre nummeret for seg. Derfor bærer hvert vers intervallet det
+//! også, men ikke alltid: noen oversettelser slår sammen enkelte versepar («15-16»), og
+//! da finnes ikke det andre nummeret for seg. Derfor bærer hvert vers intervallet det
 //! dekker, og et oppslag på 1,16 finner verset som er merket 15-16.
 //!
 //! Hver fil holder én oversettelse og bærer sin egen identitet (`id`, `title`,
@@ -189,12 +189,12 @@ impl<'a> Bible<'a> {
         }
     }
 
-    /// Kort id, f.eks. «nb88» - det som velger oversettelse i en referanse.
+    /// Kort id, f.eks. «nb30» - det som velger oversettelse i en referanse.
     pub fn id(&self) -> &'a str {
         self.string_at(self.id_str).unwrap_or("")
     }
 
-    /// Fullt navn, f.eks. «Norsk Bibel 88/07».
+    /// Fullt navn, f.eks. «Bibelen 1930».
     pub fn title(&self) -> &'a str {
         self.string_at(self.title_str).unwrap_or("")
     }
@@ -560,7 +560,7 @@ mod tests {
     use super::*;
 
     fn sample() -> Vec<u8> {
-        let mut b = Builder::new("nb88", "Norsk Bibel 88/07", "Norsk Bibel AS");
+        let mut b = Builder::new("test", "Testbibel", "Ingen");
         let gen = b.add_book(1, "Gen", "1mos", "1. Mosebok");
         b.add_chapter(
             gen,
@@ -577,9 +577,9 @@ mod tests {
     fn round_trip() {
         let bytes = sample();
         let bible = Bible::parse(&bytes).unwrap();
-        assert_eq!(bible.id(), "nb88");
-        assert_eq!(bible.title(), "Norsk Bibel 88/07");
-        assert_eq!(bible.copyright(), "Norsk Bibel AS");
+        assert_eq!(bible.id(), "test");
+        assert_eq!(bible.title(), "Testbibel");
+        assert_eq!(bible.copyright(), "Ingen");
         assert_eq!(bible.book_count(), 2);
         assert_eq!(bible.chapter_count(), 3);
         assert_eq!(bible.verse_count(), 4);
@@ -610,9 +610,8 @@ mod tests {
 
     #[test]
     fn sammenslatte_vers_og_hull() {
-        // Som Efeserne 1 i Bibel 2024: vers 15-16 står som én enhet, og 16
-        // finnes ikke for seg.
-        let mut b = Builder::new("nb24", "Bibel 2024", "");
+        // Vers 15-16 står som én enhet, og 16 finnes ikke for seg.
+        let mut b = Builder::new("test", "Testbibel", "");
         let eph = b.add_book(49, "Eph", "ef", "Efeserne");
         b.add_chapter(
             eph,

@@ -1,5 +1,5 @@
 # Tester og sjekker på macOS og Windows for hver push og pull request.
-# Biblene (*.bin) er ikke i git, så testene som trenger dem, hoppes over.
+# Oversettelsene testene bruker (bibler/kjv.bin og bibler/nb30.bin), er i git.
 name: CI
 
 on:

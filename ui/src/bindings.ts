@@ -72,7 +72,7 @@ export const APPEARANCE_MIN_SIZE = 10 as const;
 
 export const DEFAULT_APPEARANCE = {"font":"georgia","fontSize":17,"theme":"system"} as const;
 
-export const DEFAULT_SETTINGS = {"addTranslation":true,"aliases":"n=nb88,e=kjv,ne=nb88+kjv","defaultTranslation":"nb88","headingFont":"","importFolder":"","maxChars":350,"quoteFont":"","slideTheme":"kveld","suffix":" - presentasjon","translation":"kjv"} as const;
+export const DEFAULT_SETTINGS = {"addTranslation":true,"aliases":"n=nb30,e=kjv,ne=nb30+kjv","defaultTranslation":"nb30","headingFont":"","importFolder":"","maxChars":350,"quoteFont":"","slideTheme":"kveld","suffix":" - presentasjon","translation":"kjv"} as const;
 
 export const PRESENTATION_MARKER_PATTERN = "^<!-- kerygma-presentasjon: (.+?) -->[ \\t]*\\r?$" as const;
 

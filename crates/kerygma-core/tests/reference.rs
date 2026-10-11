@@ -1,4 +1,5 @@
-//! Gjenkjenning av bibelreferanser, med fasiten fra bible-repoet (`fixtures/bibel-referanser.txt`).
+//! Gjenkjenning av bibelreferanser: skrevet for hånd, og alle formene `bibel` skriver for
+//! oversettelsene i `bibler/` (`common::generated`).
 
 mod common;
 
@@ -30,6 +31,10 @@ fn gjenkjenner_bibelreferanser() {
         "1. Mosebok 3:5",
         "Johannes evangelium 3,16",
         "Salmenes bok 23",
+        "Første Johannesbrev 2:3",
+        "Jesajas bok 53:5",
+        "Paulus' brev til romerne 8:28",
+        "Isaiah 53:5",
     ] {
         assert!(is_bible_reference(reference), "{reference}");
     }
@@ -43,9 +48,9 @@ fn avviser_ting_som_ikke_er_bibelreferanser() {
 }
 
 #[test]
-fn alle_referanser_fra_bibel_prosjektet_gjenkjennes() {
+fn alle_referanser_bibel_skriver_gjenkjennes() {
     let generated = common::generated();
-    assert!(generated.len() > 600);
+    assert!(generated.len() > 400, "{}", generated.len());
     for reference in &generated {
         assert_eq!(
             extract_slide_content(&format!("Ikke med\n\nVers {reference}"), &SlideOptions::default()),
@@ -57,10 +62,16 @@ fn alle_referanser_fra_bibel_prosjektet_gjenkjennes() {
 
 #[test]
 fn referanser_gjores_om_til_oppslag_bibel_forstar_i_alle_oversettelser() {
-    assert_eq!(to_lookup("Profeten Jesaja 53:5").as_deref(), Some("Isa53:5"));
-    assert_eq!(to_lookup("Johannes´ evangelium 3:16-17").as_deref(), Some("John3:16-17"));
+    assert_eq!(to_lookup("Jesajas bok 53:5").as_deref(), Some("Isa53:5"));
+    assert_eq!(to_lookup("Johannes' evangelium 3:16-17").as_deref(), Some("John3:16-17"));
     assert_eq!(to_lookup("1. Kor 13,4-7").as_deref(), Some("1Cor13:4-7"));
     assert_eq!(to_lookup("1. Samuelsbok 1:27-2:1").as_deref(), Some("1Sam1:27-2:1"));
+    assert_eq!(to_lookup("Første Samuelsbok 1:27-2:1").as_deref(), Some("1Sam1:27-2:1"));
+    // Bok-id-en kan være OSIS («Rev») eller USFM («REV»), etter hvilke oversettelser
+    // appen er bygget med; `bibel` slår opp begge i alle.
+    let lookup = to_lookup("Åp 21,4").expect("Åp 21,4");
+    let found = common::bibel().run(&["--format", "{ref}", &format!("kjv:{lookup}")]);
+    assert_eq!(found.stdout, "Revelation 21:4\n");
     assert_eq!(to_lookup("Salmenes bok 23").as_deref(), Some("Ps23"));
     assert_eq!(to_lookup("Rom 8,28; 12,1-2"), None);
     assert_eq!(to_lookup("Luk 15,11ff"), None);

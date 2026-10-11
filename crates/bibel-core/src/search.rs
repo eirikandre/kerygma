@@ -441,17 +441,17 @@ mod tests {
     #[test]
     fn sok_i_ekte_data() {
         let Some(registry) = crate::translations::test_registry() else { return };
-        let Some(bible) = registry.by_id("nb88") else { return };
+        let Some(bible) = registry.by_id("nb30") else { return };
 
-        // Frasen står i 1. Mosebok 1:1 og i Matteus 19:4 («fra begynnelsen
-        // skapte han dem»), og skal finnes begge steder - ikke bare det ene.
-        let q = parse("\"begynnelsen skapte\"").unwrap();
+        // Frasen står i 1. Mosebok 1:27 («til mann og kvinne skapte han dem») og i
+        // 5:2 («Til mann og kvinne skapte han dem»), og skal finnes begge steder.
+        let q = parse("\"til mann og kvinne skapte han dem\"").unwrap();
         let f = search(bible, &q, &Options::default());
         assert_eq!(f.hits.len(), 2);
         assert_eq!(f.hits[0].book.osis_id, "Gen");
         assert_eq!(f.hits[0].chapter.number, 1);
-        assert_eq!(f.hits[0].verse.start, 1);
-        assert_eq!(f.hits[1].book.osis_id, "Matt");
+        assert_eq!(f.hits[0].verse.start, 27);
+        assert_eq!((f.hits[1].chapter.number, f.hits[1].verse.start), (5, 2));
 
         // Tre ledd som står i samme vers, med skilletegn mellom seg.
         let q = parse("tro håp kjærlighet").unwrap();

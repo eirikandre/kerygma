@@ -7,7 +7,7 @@ use kerygma_core::bible::{Bibel, BibelConfig};
 use kerygma_core::settings::Settings;
 use kerygma_core::verse_query::suggest_verse;
 use kerygma_core::vault::Vault;
-use kerygma_core::word::{import_docx, note_name, ConvertOptions};
+use kerygma_core::word::{import_docx, import_translations, note_name, ConvertOptions};
 use kerygma_core::workspace::{CreateResult, Workspace};
 
 const HELP: &str = "\
@@ -26,7 +26,7 @@ FLAGG
     --maks <N>          maks tegn per slide (standard 350)
     --oversettelse <id> oversettelsen som legges ved siden av (standard kjv)
     --uten-oversettelse ikke legg til oversettelse
-    --bibler <mappe>    hvor *.bin ligger (standard $KERYGMA_BIBLER eller ./bibler)
+    --bibler <mappe>    hvor *.bin ligger (standard $KERYGMA_BIBLER eller bibler/ i repoet)
     --ut <mappe>        hvor importerte manus legges (standard: ved siden av .docx-fila)
     --uten-søk          ikke søk etter bibelvers i avsnitt uten referanse
 ";
@@ -58,7 +58,7 @@ fn parse_options(args: &[String]) -> Result<Options, String> {
         out: None,
         search: true,
         settings: Settings::default(),
-        bibles: std::env::var_os("KERYGMA_BIBLER").map_or_else(|| PathBuf::from("bibler"), PathBuf::from),
+        bibles: std::env::var_os("KERYGMA_BIBLER").map_or_else(default_bibles, PathBuf::from),
     };
     let mut args = args.iter();
     while let Some(arg) = args.next() {
@@ -80,6 +80,11 @@ fn parse_options(args: &[String]) -> Result<Options, String> {
     }
     options.settings = options.settings.sanitized();
     Ok(options)
+}
+
+/// Oversettelsene i `bibler/` i repoet CLI-en er bygget fra.
+fn default_bibles() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../bibler")
 }
 
 fn load_bibel(dir: &Path, settings: &Settings) -> Result<Bibel, String> {
@@ -190,9 +195,11 @@ fn import(options: &Options) -> Result<(), String> {
     }
     let bibel = load_bibel(&options.bibles, &options.settings)?;
     let convert_options = ConvertOptions { search: options.search };
+    let translations = import_translations(&bibel, &options.settings.default_translation, &options.settings.translation);
     for file in files {
         let data = std::fs::read(&file).map_err(|e| format!("kunne ikke lese «{}»: {e}", file.display()))?;
-        let result = import_docx(&data, &bibel, &convert_options).map_err(|e| format!("{}: {e}", file.display()))?;
+        let result =
+            import_docx(&data, &bibel, &translations, &convert_options).map_err(|e| format!("{}: {e}", file.display()))?;
         let name = note_name(&file.file_name().unwrap_or_default().to_string_lossy()) + ".md";
         let dir = options.out.clone().unwrap_or_else(|| file.parent().map(Path::to_path_buf).unwrap_or_default());
         std::fs::create_dir_all(&dir).map_err(|e| format!("kunne ikke lage «{}»: {e}", dir.display()))?;

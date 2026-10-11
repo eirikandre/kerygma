@@ -112,10 +112,10 @@ mod tests {
     #[test]
     fn delte_vers_og_oversettelser_pa_egne_linjer_merkes_del_for_del() {
         let options = SlideOptions { max_chars: Some(30), ..Default::default() };
-        let manuscript = "> Herren er min hyrde. Jeg mangler ingen ting. (Sal 23,1)\n";
+        let manuscript = "> Herren er min hyrde. Mig fattes intet. (Sal 23,1)\n";
         assert_eq!(
             marked(manuscript, &options),
-            format!("> {}Herren er min hyrde. {}{}Jeg mangler ingen ting. (Sal 23,1){}\n", start(0), end(0), start(1), end(1))
+            format!("> {}Herren er min hyrde. {}{}Mig fattes intet. (Sal 23,1){}\n", start(0), end(0), start(1), end(1))
         );
 
         // Samme vers i to oversettelser blir kolonner: begge linjene hører til sliden.
@@ -136,7 +136,7 @@ mod tests {
     fn alle_slides_har_merkene_sine_i_html_en() {
         let manuscript = "---\ntags: [påske]\n---\n# Påske\n\nInnledning med *kursiv* og **fet** tekst. \
             For så har Gud elsket verden (Joh 3,16)\n\n\
-            > [!note] Til ettertanke\n> Herren er min hyrde, jeg mangler ingen ting. (Sal 23,1)\n\n\
+            > [!note] Til ettertanke\n> Herren er min hyrde, mig fattes intet. (Sal 23,1)\n\n\
             > Gud er kjærlighet. (1 Joh 4,8)\n> God is love. (1 John 4:8)\n\n\
             - Et punkt med ==utheving== og ![[bilde.png]]\n\n\
             ## Del 2\n\n%% en kommentar %%\n\nSlutt. «Jeg er veien» (Joh 14,6)\n";

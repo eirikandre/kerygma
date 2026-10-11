@@ -1,0 +1,2 @@
+# Oversettelsene er binærfiler; git skal aldri endre linjeskift i dem.
+*.bin binary

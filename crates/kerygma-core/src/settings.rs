@@ -35,8 +35,8 @@ impl Default for Settings {
             max_chars: DEFAULT_MAX_CHARS,
             add_translation: true,
             translation: "kjv".to_string(),
-            default_translation: "nb88".to_string(),
-            aliases: "n=nb88,e=kjv,ne=nb88+kjv".to_string(),
+            default_translation: "nb30".to_string(),
+            aliases: "n=nb30,e=kjv,ne=nb30+kjv".to_string(),
             import_folder: String::new(),
             slide_theme: "kveld".to_string(),
             heading_font: String::new(),
@@ -92,10 +92,10 @@ mod tests {
     #[test]
     fn ukjente_felt_fjernes_og_ugyldige_verdier_gir_standard() {
         let settings =
-            Settings::from_json(r#"{"suffix":"","maxChars":-3,"translation":" nb24 ","trigger":":b","openCopy":false}"#);
+            Settings::from_json(r#"{"suffix":"","maxChars":-3,"translation":" nb30 ","trigger":":b","openCopy":false}"#);
         assert_eq!(
             settings,
-            Settings { translation: "nb24".to_string(), ..Settings::default() }
+            Settings { translation: "nb30".to_string(), ..Settings::default() }
         );
         assert!(!settings.to_json().contains("trigger"));
         assert!(!settings.to_json().contains("openCopy"));

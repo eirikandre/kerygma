@@ -22,5 +22,9 @@ specta = { version = "=2.0.0-rc.25", features = ["derive"], optional = true }
 [features]
 specta = ["dep:specta"]
 
+[build-dependencies]
+# build.rs leser boknavnene fra oversettelsene i bibler/.
+bibel-format = { path = "../bibel-format" }
+
 [dev-dependencies]
 regex = "1"

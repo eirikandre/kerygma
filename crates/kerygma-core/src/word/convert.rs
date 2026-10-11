@@ -140,7 +140,7 @@ static CHAPTER_VERSE_AT_START: LazyLock<FancyRegex> =
     LazyLock::new(|| fancy(r"^\s*([0-9]{1,3})[:,]([0-9]{1,3})(?:\s*[-–]\s*([0-9]{1,3}))?(?=\s)"));
 static CHAPTER_MENTION: LazyLock<FancyRegex> =
     LazyLock::new(|| fancy(r"(?i)(?<![\p{L}])(\p{L}+)\s+kap(?:ittel|\.)?\s*([0-9]{1,3})(?![0-9A-Za-z_])"));
-/// Oversettelsen skrevet etter et sitat: "(N78)", "(NB88)".
+/// Oversettelsen skrevet etter et sitat i manuset: "(N78)", "(NB)".
 static TRANSLATION_MARK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\(\s*[A-Z]{1,4}\s?[0-9]{0,4}\s*\)").unwrap());
 static NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[0-9]+$").unwrap());
 static WORD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\p{L}\p{N}]+").unwrap());

@@ -1,5 +1,10 @@
 /target
+# Oversettelsene: bare de som er i det fri, er i git (KJV og Bibelen 1930). Andre som
+# legges i bibler/, blir med når appen bygges, men skal ikke i git (se bibler/README.md).
 /bibler/*.bin
+!/bibler/kjv.bin
+!/bibler/nb30.bin
+!/bibler/nb30.bin
 node_modules/
 dist/
 .DS_Store

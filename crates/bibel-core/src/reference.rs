@@ -19,9 +19,8 @@ use bibel_format::{books, Bible, Book, Verse};
 ///
 /// Tabellen gjelder for alle oversettelser, ikke bare den forkortelsen kommer fra:
 /// hver oversettelse kjenner bare sine egne forkortelser og navn, så uten den
-/// ville «ne:1kor13:1» feile i KJV og «nb88:genesis1:1» feile i NB88. Derfor står
-/// forkortelsene og boknavnene fra NB88, Bibel 2024 og KJV her, i tillegg til
-/// vanlige kortformer.
+/// ville «ne:1kor13:1» feile i KJV og «nb30:genesis1:1» feile i nb30. Derfor står
+/// forkortelsene og boknavnene fra nb30 og KJV her, i tillegg til vanlige kortformer.
 pub const ALIASES: &[(&str, &str)] = &[
     ("1mosebok", "Gen"),
     ("2mosebok", "Exod"),
@@ -94,7 +93,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("åp", "Rev"),
     ("åpb", "Rev"),
     ("åpenbaringen", "Rev"),
-    // Forkortelser og navn fra NB88 og Bibel 2024.
+    // Forkortelser og navn fra Bibelen 1930 (nb30).
     ("1mos", "Gen"),
     ("førstemosebok", "Gen"),
     ("2mos", "Exod"),
@@ -105,133 +104,128 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("fjerdemosebok", "Num"),
     ("5mos", "Deut"),
     ("femtemosebok", "Deut"),
+    ("jos", "Josh"),
     ("josvasbok", "Josh"),
     ("dom", "Judg"),
     ("dommernesbok", "Judg"),
+    ("rut", "Ruth"),
     ("rutsbok", "Ruth"),
-    ("1samuelsbok", "1Sam"),
     ("førstesamuelsbok", "1Sam"),
-    ("2samuelsbok", "2Sam"),
     ("andresamuelsbok", "2Sam"),
     ("1kong", "1Kgs"),
     ("førstekongebok", "1Kgs"),
     ("2kong", "2Kgs"),
     ("andrekongebok", "2Kgs"),
     ("1kron", "1Chr"),
-    ("1krøn", "1Chr"),
     ("førstekrønikebok", "1Chr"),
     ("2kron", "2Chr"),
-    ("2krøn", "2Chr"),
     ("andrekrønikebok", "2Chr"),
     ("esr", "Ezra"),
     ("esrasbok", "Ezra"),
-    ("esra", "Ezra"),
-    ("nehemjasbok", "Neh"),
+    ("nehemiasbok", "Neh"),
+    ("est", "Esth"),
     ("estersbok", "Esth"),
     ("jobsbok", "Job"),
     ("sal", "Ps"),
     ("salmenesbok", "Ps"),
     ("ord", "Prov"),
-    ("salomosordspråk", "Prov"),
-    ("ordsp", "Prov"),
+    ("ordspråkenesbok", "Prov"),
     ("fork", "Eccl"),
-    ("predikantensbok", "Eccl"),
-    ("forkynneren", "Eccl"),
+    ("forkynnerensbok", "Eccl"),
     ("hoys", "Song"),
-    ("salomoshøysang", "Song"),
-    ("høys", "Song"),
     ("jes", "Isa"),
-    ("profetenjesaja", "Isa"),
-    ("profetenjeremia", "Jer"),
+    ("jesajasbok", "Isa"),
+    ("jeremiasbok", "Jer"),
     ("klag", "Lam"),
     ("esek", "Ezek"),
-    ("profetenesekiel", "Ezek"),
-    ("profetendaniel", "Dan"),
-    ("profetenhosea", "Hos"),
-    ("hosea", "Hos"),
-    ("profetenjoel", "Joel"),
-    ("profetenamos", "Amos"),
-    ("am", "Amos"),
-    ("profetenobadja", "Obad"),
-    ("ob", "Obad"),
-    ("profetenjonas", "Jonah"),
+    ("esekielsbok", "Ezek"),
+    ("danielsbok", "Dan"),
+    ("hoseasbok", "Hos"),
+    ("joelsbok", "Joel"),
+    ("amosbok", "Amos"),
+    ("obadjasbok", "Obad"),
+    ("jon", "Jonah"),
+    ("jonasbok", "Jonah"),
     ("mika", "Mic"),
-    ("profetenmika", "Mic"),
-    ("mi", "Mic"),
-    ("profetennahum", "Nah"),
-    ("nahum", "Nah"),
-    ("profetenhabakkuk", "Hab"),
-    ("habakkuk", "Hab"),
+    ("mikasbok", "Mic"),
+    ("nahumsbok", "Nah"),
+    ("habakkuksbok", "Hab"),
     ("sef", "Zeph"),
-    ("profetensefanja", "Zeph"),
-    ("profetenhaggai", "Hag"),
+    ("sefanjasbok", "Zeph"),
+    ("haggaisbok", "Hag"),
     ("sak", "Zech"),
-    ("profetensakarias", "Zech"),
-    ("profetenmalakias", "Mal"),
+    ("sakarjasbok", "Zech"),
+    ("malakisbok", "Mal"),
     ("matteusevangelium", "Matt"),
-    ("evangelietettermatteus", "Matt"),
     ("markusevangelium", "Mark"),
-    ("evangelietettermarkus", "Mark"),
+    ("luk", "Luke"),
     ("lukasevangelium", "Luke"),
-    ("evangelietetterlukas", "Luke"),
     ("joh", "John"),
     ("johannesevangelium", "John"),
-    ("evangelietetterjohannes", "John"),
     ("apg", "Acts"),
     ("apostlenesgjerninger", "Acts"),
     ("paulusbrevtilromerne", "Rom"),
     ("1kor", "1Cor"),
-    ("1korinterbrev", "1Cor"),
-    ("paulusførstebrevtilkorinterne", "1Cor"),
+    ("førstekorinterbrev", "1Cor"),
     ("2kor", "2Cor"),
-    ("2korinterbrev", "2Cor"),
-    ("paulusandrebrevtilkorinterne", "2Cor"),
-    ("galaterbrevet", "Gal"),
+    ("andrekorinterbrev", "2Cor"),
     ("paulusbrevtilgalaterne", "Gal"),
     ("ef", "Eph"),
-    ("efeserbrevet", "Eph"),
     ("paulusbrevtilefeserne", "Eph"),
     ("fil", "Phil"),
-    ("filipperbrevet", "Phil"),
     ("paulusbrevtilfilipperne", "Phil"),
     ("kol", "Col"),
-    ("kolosserbrevet", "Col"),
     ("paulusbrevtilkolosserne", "Col"),
     ("1tess", "1Thess"),
-    ("1tessalonikerbrev", "1Thess"),
-    ("paulusførstebrevtiltessalonikerne", "1Thess"),
+    ("førstetessalonikerbrev", "1Thess"),
     ("2tess", "2Thess"),
-    ("2tessalonikerbrev", "2Thess"),
-    ("paulusandrebrevtiltessalonikerne", "2Thess"),
-    ("1timoteusbrev", "1Tim"),
-    ("paulusførstebrevtiltimoteus", "1Tim"),
-    ("2timoteusbrev", "2Tim"),
-    ("paulusandrebrevtiltimoteus", "2Tim"),
-    ("titusbrev", "Titus"),
+    ("andretessalonikerbrev", "2Thess"),
+    ("førstetimoteusbrev", "1Tim"),
+    ("andretimoteusbrev", "2Tim"),
+    ("tit", "Titus"),
     ("paulusbrevtiltitus", "Titus"),
     ("filem", "Phlm"),
-    ("filemonsbrev", "Phlm"),
     ("paulusbrevtilfilemon", "Phlm"),
-    ("hebr", "Heb"),
     ("brevettilhebreerne", "Heb"),
     ("jak", "Jas"),
     ("jakobsbrev", "Jas"),
-    ("1petersbrev", "1Pet"),
-    ("petersførstebrev", "1Pet"),
-    ("2petersbrev", "2Pet"),
-    ("petersandrebrev", "2Pet"),
+    ("førstepetersbrev", "1Pet"),
+    ("andrepetersbrev", "2Pet"),
     ("1joh", "1John"),
-    ("1johannesbrev", "1John"),
-    ("johannesførstebrev", "1John"),
+    ("førstejohannesbrev", "1John"),
     ("2joh", "2John"),
-    ("2johannesbrev", "2John"),
-    ("johannesandrebrev", "2John"),
+    ("andrejohannesbrev", "2John"),
     ("3joh", "3John"),
-    ("3johannesbrev", "3John"),
-    ("johannestredjebrev", "3John"),
+    ("tredjejohannesbrev", "3John"),
+    ("jud", "Jude"),
     ("judasbrev", "Jude"),
     ("aap", "Rev"),
     ("johannesåpenbaring", "Rev"),
+    // Andre vanlige norske kortformer.
+    ("1krøn", "1Chr"),
+    ("2krøn", "2Chr"),
+    ("esra", "Ezra"),
+    ("ordsp", "Prov"),
+    ("høys", "Song"),
+    ("hosea", "Hos"),
+    ("am", "Amos"),
+    ("ob", "Obad"),
+    ("mi", "Mic"),
+    ("nahum", "Nah"),
+    ("habakkuk", "Hab"),
+    ("1samuelsbok", "1Sam"),
+    ("2samuelsbok", "2Sam"),
+    ("1korinterbrev", "1Cor"),
+    ("2korinterbrev", "2Cor"),
+    ("galaterbrevet", "Gal"),
+    ("efeserbrevet", "Eph"),
+    ("filipperbrevet", "Phil"),
+    ("kolosserbrevet", "Col"),
+    ("1tessalonikerbrev", "1Thess"),
+    ("2tessalonikerbrev", "2Thess"),
+    ("1timoteusbrev", "1Tim"),
+    ("2timoteusbrev", "2Tim"),
+    ("hebr", "Heb"),
     // Engelske navn og kortformer (KJV m.fl.).
     ("genesis", "Gen"),
     ("exodus", "Exod"),
@@ -385,8 +379,8 @@ fn find_book<'a>(bible: &Bible<'a>, needle: &str) -> Result<Book<'a>, RefError> 
             return Ok(book);
         }
     }
-    // Datasettene bruker ulike kodeverk for bok-id: NB88 og KJV har OSIS («John»),
-    // bibel.no har USFM («JHN»). Her oversettes begge til samme nøkkel, slik at
+    // Datasettene kan bruke ulike kodeverk for bok-id: OSIS («John», som nb30 og KJV)
+    // eller USFM («JHN»). Her oversettes begge til samme nøkkel, slik at
     // «john3:16» og «jhn3:16» treffer i alle oversettelsene.
     if let Some(wanted) = books::canonical(&single) {
         for book in bible.books() {
@@ -500,6 +494,14 @@ fn parse_tail(tail: &str) -> Result<Parsed, RefError> {
 }
 
 pub fn resolve<'a>(bible: &Bible<'a>, input: &str) -> Result<Resolved<'a>, RefError> {
+    resolve_with(bible, input, &[])
+}
+
+/// Som [`resolve`], men et boknavn `bible` ikke kjenner, slås også opp i `others`
+/// (de andre oversettelsene som er lastet): «nb30:Isaiah53:5» og «kjv:Jesajas bok 53:5»
+/// treffer samme bok. Slik virker navnene og forkortelsene til alle oversettelsene
+/// i alle, uten at de må stå i [`ALIASES`].
+pub fn resolve_with<'a>(bible: &Bible<'a>, input: &str, others: &[&Bible<'_>]) -> Result<Resolved<'a>, RefError> {
     let cleaned: String = input
         .trim()
         .trim_start_matches(':')
@@ -527,7 +529,17 @@ pub fn resolve<'a>(bible: &Bible<'a>, input: &str) -> Result<Resolved<'a>, RefEr
     let book_part: String = chars[..i].iter().collect();
     let tail: String = chars[i..].iter().collect();
 
-    let book = find_book(bible, &book_part)?;
+    let book = match find_book(bible, &book_part) {
+        Err(RefError::UnknownBook(name)) => others
+            .iter()
+            .filter_map(|other| find_book(other, &book_part).ok())
+            .find_map(|found| {
+                let wanted = books::canonical(found.osis_id);
+                bible.books().find(|b| b.osis_id == found.osis_id || (wanted.is_some() && books::canonical(b.osis_id) == wanted))
+            })
+            .ok_or(RefError::UnknownBook(name))?,
+        other => other?,
+    };
     if tail.is_empty() {
         return Err(RefError::MissingChapter(book.name.to_string()));
     }

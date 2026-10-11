@@ -127,10 +127,11 @@ mod tests {
 
     #[test]
     fn finner_sitatet_midt_i_teksten() {
-        let text = words("han sa at gud overgav judas konge jojakim i hans hånd sånn var det");
-        let bible = words("Herren overga Judas konge Jojakim i hans hånd");
+        let text = words("han sa at herren gav juda konge jojakim i hans hånd sånn var det");
+        // Daniel 1:2 i Bibelen 1930. «juda» og «Judas» regnes som like.
+        let bible = words("Og Herren gav Judas konge Jojakim i hans hånd");
         let a = align(&text, &bible).unwrap();
-        assert_eq!((a.start, a.end), (4, 10));
-        assert_eq!(a.matches, 7);
+        assert_eq!((a.start, a.end), (3, 10));
+        assert_eq!(a.matches, 8);
     }
 }

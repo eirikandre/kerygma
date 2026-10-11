@@ -20,13 +20,13 @@ pub struct VerseId {
 }
 
 pub trait BibleText {
-    /// Oversettelsene teksten sammenlignes med, som ["nb88", "nb24"]. Den første gir navnet i referansene.
+    /// Oversettelsene teksten sammenlignes med, som ["nb30"]. Den første gir navnet i referansene.
     fn translations(&self) -> &[String];
     /// Bok-id-en `bibel` slår opp på ("DAN"), for et boknavn som "Dan", "2.Kongebok" eller "Åpenbaringen".
     fn book_id(&self, name: &str) -> Option<String>;
     /// Teksten i ett vers, uten versnummer.
     fn verse(&self, translation: &str, id: &VerseId) -> Option<String>;
-    /// Referansen slik `bibel` skriver den: "Profeten Daniel 1:1-2".
+    /// Referansen slik `bibel` skriver den: "Daniels bok 1:1-2".
     fn reference(&self, book: &str, chapter: u32, from: u32, to: u32) -> Option<String>;
     /// De versene som har flest av ordene (minst tre, eller alle hvis det er færre).
     fn search(&self, translation: &str, words: &[String]) -> Vec<VerseId>;

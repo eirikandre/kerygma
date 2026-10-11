@@ -1,6 +1,7 @@
 //! Gjenkjenner bibelreferanser som "Joh 3,16", "1. Kor 13,4-7", "Sal 23",
-//! "Rom 8,28; 12,1-2" og "Joh 3:16 NB", og alt `bibel` lager, som
-//! "Profeten Jesaja 53:5", "Johannes´ evangelium 3:16-17" og "John 3:16".
+//! "Rom 8,28; 12,1-2" og "Joh 3:16 NB", og alt `bibel` lager for oversettelsene
+//! appen er bygget med, som "Jesajas bok 53:5", "Johannes' evangelium 3:16-17" og
+//! "John 3:16".
 //!
 //! Sifre skrives `[0-9]` (bare ASCII), ikke `\d`, som i Rust også godtar andre sifre.
 
@@ -9,7 +10,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use crate::book_names::BOOK_IDS;
+use crate::book_names::{BOOK_IDS, NORWEGIAN_NAMES};
 
 static LEADING_NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[1-5]\.?\s*").unwrap());
 static SEPARATORS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\s´'’.]+").unwrap());
@@ -26,13 +27,17 @@ fn book_key(name: &str) -> String {
     SEPARATORS.replace_all(&name.to_lowercase(), "").into_owned()
 }
 
-/// Navn og forkortelser fra alle oversettelsene i `bible`.
-static KNOWN_NAMES: LazyLock<HashSet<String>> =
-    LazyLock::new(|| BOOK_IDS.iter().map(|(name, _)| normalize(name)).collect());
+/// Alle boknavnene: de vanlige norske først, så navnene fra oversettelsene.
+fn all_names() -> impl Iterator<Item = &'static (&'static str, &'static str)> {
+    NORWEGIAN_NAMES.iter().chain(BOOK_IDS)
+}
 
-/// Senere navn med samme nøkkel vinner, som i `new Map(...)`.
+/// Navn og forkortelser fra oversettelsene og de vanlige norske.
+static KNOWN_NAMES: LazyLock<HashSet<String>> = LazyLock::new(|| all_names().map(|(name, _)| normalize(name)).collect());
+
+/// Senere navn med samme nøkkel vinner, så navnene fra oversettelsene går foran.
 static BOOK_ID_BY_KEY: LazyLock<HashMap<String, &'static str>> =
-    LazyLock::new(|| BOOK_IDS.iter().map(|(name, id)| (book_key(name), *id)).collect());
+    LazyLock::new(|| all_names().map(|(name, id)| (book_key(name), *id)).collect());
 
 /// Stammer av bøkenes norske navn, for referanser skrevet for hånd. En bok
 /// matcher hvis navnet starter med stammen ("Johannesevangeliet") eller er en
@@ -100,8 +105,8 @@ static SIMPLE_LOCUS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[0-9]+(?::[0-9]+(?:-[0-9]+(?::[0-9]+)?)?)?$").unwrap());
 
 /// Gjør en referanse om til et oppslag `bibel` forstår i alle oversettelser:
-/// "Profeten Jesaja 53:5" -> "Isa53:5", "1. Kor 13,4-7" -> "1Cor13:4-7".
-/// Gir `None` for boknavn som ikke finnes i `bible` og for former `bibel`
+/// "Jesajas bok 53:5" -> "Isa53:5", "1. Kor 13,4-7" -> "1Cor13:4-7".
+/// Gir `None` for ukjente boknavn og for former `bibel`
 /// ikke støtter, som "Rom 8,28; 12,1-2" og "Luk 15,11ff".
 pub fn to_lookup(reference: &str) -> Option<String> {
     let caps = FIRST_PART.captures(reference.trim())?;
@@ -121,7 +126,7 @@ static TRANSLATION_AT_END: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\s+[A-Z][A-Za-z]{1,5}[0-9]{0,4}$").unwrap());
 static WHITESPACE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+").unwrap());
 
-/// Kapittel og vers uten boknavn: "Johannes´ evangelium 3:16-17" og "John 3,16–17" gir "3:16-17".
+/// Kapittel og vers uten boknavn: "Johannes' evangelium 3:16-17" og "John 3,16–17" gir "3:16-17".
 pub fn reference_locus(reference: &str) -> String {
     let locus = LOCUS_AT_END.find(reference.trim()).map_or("", |m| m.as_str());
     let locus = TRANSLATION_AT_END.replace(locus, "");

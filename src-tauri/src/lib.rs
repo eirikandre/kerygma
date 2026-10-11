@@ -22,7 +22,12 @@ use crate::state::{AppState, BibleState};
 fn bibles_dir(app: &AppHandle) -> Option<PathBuf> {
     let bundled = app.path().resource_dir().ok().map(|dir| dir.join("bibler"));
     let repo = cfg!(debug_assertions).then(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bibler"));
-    [bundled, repo].into_iter().flatten().find(|dir| dir.join("nb88.bin").exists() || dir.join("kjv.bin").exists())
+    let has_bibles = |dir: &PathBuf| {
+        std::fs::read_dir(dir).is_ok_and(|entries| {
+            entries.filter_map(Result::ok).any(|entry| entry.path().extension().is_some_and(|ext| ext == "bin"))
+        })
+    };
+    [bundled, repo].into_iter().flatten().find(has_bibles)
 }
 
 /// Laster biblene i en egen tråd, så vinduet ikke venter. Sender `bible-ready` når de er klare.

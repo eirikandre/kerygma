@@ -5,7 +5,7 @@
 
 use bibel_format::{Bible, FormatError};
 
-/// Et kombinasjonsnavn og oversettelsene det peker på, som «ne» → nb88 + kjv.
+/// Et kombinasjonsnavn og oversettelsene det peker på, som «ne» → nb30 + kjv.
 pub type Alias = (String, Vec<String>);
 
 pub struct Registry {
@@ -38,7 +38,7 @@ impl Registry {
         }
     }
 
-    /// Setter kombinasjonsnavnene, skrevet som `BIBEL_ALIAS`: «n=nb88,e=kjv,ne=nb88+kjv».
+    /// Setter kombinasjonsnavnene, skrevet som `BIBEL_ALIAS`: «n=nb30,e=kjv,ne=nb30+kjv».
     ///
     /// Kontrolleres på samme måte som build.rs gjør for kjørbaren: et navn kan
     /// ikke skygge for en oversettelse, og må peke på oversettelser som finnes.
@@ -99,7 +99,7 @@ impl Registry {
             .map(|(_, targets)| targets.as_slice())
     }
 
-    /// Tolker «nb88», «nb88+kjv» eller et aliasnavn til oversettelsene det peker på.
+    /// Tolker «nb30», «nb30+kjv» eller et aliasnavn til oversettelsene det peker på.
     ///
     /// Aliaser utvides ett nivå - de kan ikke peke på andre aliaser - slik at en
     /// skrivefeil i et alias ikke kan gi en uendelig løkke.
@@ -148,8 +148,8 @@ impl Registry {
 }
 
 /// Oversettelsene i `bibler/` i roten av repoet, med de samme snarveiene som
-/// standardinnstillingene i Kerygma. Tester som trenger en bestemt oversettelse,
-/// hopper over seg selv uten den.
+/// standardinnstillingene i Kerygma. Tester som trenger en bestemt oversettelse
+/// (som nb30), hopper over seg selv uten den.
 #[cfg(test)]
 pub(crate) fn test_registry() -> Option<Registry> {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bibler");
@@ -168,9 +168,9 @@ pub(crate) fn test_registry() -> Option<Registry> {
     if registry.is_empty() {
         return None;
     }
-    let _ = registry.set_default("nb88");
+    let _ = registry.set_default("nb30");
     let ids = registry.ids();
-    let wanted = ["n=nb88", "e=kjv", "ne=nb88+kjv"];
+    let wanted = ["n=nb30", "e=kjv", "ne=nb30+kjv"];
     let spec: Vec<&str> = wanted
         .iter()
         .copied()
@@ -191,7 +191,7 @@ mod tests {
         assert!(r.set_aliases(&format!("{id}={id}")).is_err(), "skygger for en oversettelse");
         assert!(r.set_aliases("x=finnesikke").is_err());
         assert!(r.set_aliases("x").is_err());
-        assert!(r.set_aliases("=nb88").is_err());
+        assert!(r.set_aliases("=nb30").is_err());
         r.set_aliases(&format!("x={id}")).unwrap();
         assert_eq!(r.select("x").unwrap()[0].id(), id);
         r.set_aliases("").unwrap();

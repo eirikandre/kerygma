@@ -40,7 +40,7 @@ const FIELDS: Field[] = [
   {
     key: "translation",
     name: "Oversettelse",
-    desc: "Oversettelsen som legges ved siden av, som id (kjv, nb88, nb24) eller snarvei. Standard: kjv.",
+    desc: "Oversettelsen som legges ved siden av, som id (som kjv eller nb30) eller snarvei. Standard: kjv.",
     type: "text",
   },
   {
@@ -53,7 +53,7 @@ const FIELDS: Field[] = [
     key: "aliases",
     name: "Snarveier",
     desc:
-      'Korte navn på én eller flere oversettelser, som i espanso-oppsettet. "ne=nb88+kjv" gjør at "ne:joh3:16" gir begge. ' +
+      'Korte navn på én eller flere oversettelser, som i espanso-oppsettet. "ne=nb30+kjv" gjør at "ne:joh3:16" gir begge. ' +
       `Standard: ${DEFAULTS.aliases}.`,
     type: "text",
   },
@@ -265,7 +265,7 @@ function slideSettings(parent: HTMLElement, settings: Settings, save: () => void
     card.setAttribute("role", "radio");
     card.innerHTML =
       `<div class="slide-theme-preview"><div class="slide-theme-heading">Overskrift</div>` +
-      `<div class="slide-theme-quote">Herren er min hyrde, jeg mangler ingen ting.</div></div>` +
+      `<div class="slide-theme-quote">Herren er min hyrde, mig fattes intet.</div></div>` +
       `<div class="slide-theme-name"></div>`;
     card.querySelector(".slide-theme-name")!.textContent = theme.name;
     card.addEventListener("click", () => {

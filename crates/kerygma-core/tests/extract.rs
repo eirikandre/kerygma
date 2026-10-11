@@ -42,14 +42,14 @@ Dette er innledende tekst som skal bort.
 
 ## Guds kjærlighet
 
-Vi leser fra Johannes. «For så har Gud elsket verden at han ga sin Sønn, den enbårne» (Joh 3,16). Dette betyr mye.
+Vi leser fra Johannes. «For så har Gud elsket verden at han gav sin Sønn, den enbårne» (Joh 3,16). Dette betyr mye.
 
-Kjærlighet er tålmodig, kjærlighet er god (1 Kor 13,4)
+Kjærligheten er langmodig, er velvillig (1 Kor 13,4)
 
 - Et poeng uten vers
-- Jesus sa: “Jeg er veien, sannheten og livet” (Joh 14,6)
+- Jesus sa: “Jeg er veien og sannheten og livet” (Joh 14,6)
 
-> Herren er min hyrde, jeg mangler ingen ting.
+> Herren er min hyrde, mig fattes intet.
 > (Sal 23,1)
 
 ```
@@ -77,19 +77,19 @@ tags: preken
 
 ---
 
-Vi leser fra Johannes. «For så har Gud elsket verden at han ga sin Sønn, den enbårne» (Joh 3,16)
+Vi leser fra Johannes. «For så har Gud elsket verden at han gav sin Sønn, den enbårne» (Joh 3,16)
 
 ---
 
-Kjærlighet er tålmodig, kjærlighet er god (1 Kor 13,4)
+Kjærligheten er langmodig, er velvillig (1 Kor 13,4)
 
 ---
 
-Jesus sa: “Jeg er veien, sannheten og livet” (Joh 14,6)
+Jesus sa: “Jeg er veien og sannheten og livet” (Joh 14,6)
 
 ---
 
-Herren er min hyrde, jeg mangler ingen ting. (Sal 23,1)
+Herren er min hyrde, mig fattes intet. (Sal 23,1)
 
 ---
 
@@ -111,11 +111,11 @@ fn vers_uten_anforselstegn_med_fulle_boknavn() {
     let input = "
 Dette er tekst so ikke skal med i slide
 
-Ved dette vet vi at vi har lært ham å kjenne, om vi holder fast på hans bud. (1. Johannes´ brev 2:3) 
+Og derav vet vi at vi kjenner ham: om vi holder hans bud. (Første Johannesbrev 2:3) 
 
 Dette er videre test som ikke skal med
 
-Men Gud vet at den dagen dere eter av det, vil øynene deres åpnes, dere vil bli slik som Gud til å kjenne godt og ondt. (1. Mosebok 3:5) 
+for Gud vet at på den dag I eter av det, skal eders øine åpnes, og I skal bli likesom Gud og kjenne godt og ondt. (Første Mosebok 3:5) 
 
 OG dette skal ikke med igjen
 
@@ -126,11 +126,11 @@ og dette skal ikke med
 
     assert_eq!(
         extract(input),
-        "Ved dette vet vi at vi har lært ham å kjenne, om vi holder fast på hans bud. (1. Johannes´ brev 2:3)
+        "Og derav vet vi at vi kjenner ham: om vi holder hans bud. (Første Johannesbrev 2:3)
 
 ---
 
-Men Gud vet at den dagen dere eter av det, vil øynene deres åpnes, dere vil bli slik som Gud til å kjenne godt og ondt. (1. Mosebok 3:5)
+for Gud vet at på den dag I eter av det, skal eders øine åpnes, og I skal bli likesom Gud og kjenne godt og ondt. (Første Mosebok 3:5)
 
 ---
 
@@ -147,20 +147,20 @@ fn filnavnet_blir_ikke_egen_slide_og_frontmatter_beholdes() {
 #[test]
 fn tittelen_i_warning_sjekk_blir_ikke_med_pa_sliden_men_verset_gjor() {
     let input = "> [!warning|sjekk] Funnet med søk i Bibelen. Manuset har ingen referanse.
-> Du skal kalles med et nytt navn. (Profeten Jesaja 62:2)";
-    assert_eq!(lone_verse_references(input), strings(&["Profeten Jesaja 62:2"]));
-    assert_eq!(extract(input), "Du skal kalles med et nytt navn. (Profeten Jesaja 62:2)\n");
+> og du skal kalles med et nytt navn, som Herrens munn skal nevne. (Jesajas bok 62:2)";
+    assert_eq!(lone_verse_references(input), strings(&["Jesajas bok 62:2"]));
+    assert_eq!(extract(input), "og du skal kalles med et nytt navn, som Herrens munn skal nevne. (Jesajas bok 62:2)\n");
 }
 
 #[test]
 fn fet_og_kursiv_blir_html_i_kolonnene_siden_markdown_ikke_virker_inne_i_html() {
     let input =
-        "> Dette er arven til Herrens tjenere, **den rett de får av meg**, sier *Herren* & ==han==. (Jes 54:17)";
+        "> dette er Herrens tjeneres arv og **den rett de får av mig**, sier *Herren* & ==han==. (Jes 54:17)";
     assert_eq!(
-        with_translations(input, &[("Jes 54:17", "This is the heritage. (Isaiah 54:17)")]),
+        with_translations(input, &[("Jes 54:17", "This is the heritage of the servants of the LORD. (Isaiah 54:17)")]),
         r#"<div class="bibel-parallell">
-<p>Dette er arven til Herrens tjenere, <strong>den rett de får av meg</strong>, sier <em>Herren</em> &amp; <mark>han</mark>. (Jes 54:17)</p>
-<p>This is the heritage. (Isaiah 54:17)</p>
+<p>dette er Herrens tjeneres arv og <strong>den rett de får av mig</strong>, sier <em>Herren</em> &amp; <mark>han</mark>. (Jes 54:17)</p>
+<p>This is the heritage of the servants of the LORD. (Isaiah 54:17)</p>
 </div>
 "#
     );
@@ -181,10 +181,10 @@ fn fet_tekst_som_deles_over_flere_slides_lukkes_og_apnes_igjen() {
 #[test]
 fn vers_fra_bibel_beholdes_helt_ogsa_med_dialog_og_versnumre() {
     let verses = [
-        "Jesus svarte: «Sannelig, sannelig, jeg sier deg: Den som ikke blir født på ny, kan ikke se Guds rike.» (Johannes 3:3)",
-        "<sup>1:3</sup> c <sup>2:1</sup> d <sup>2:2</sup> e (1. Samuelsbok 1:3-2:2)",
-        "<sup>16</sup> For så har Gud elsket verden ... <sup>17</sup> For Gud sendte ikke sin Sønn ... (Johannes´ evangelium 3:16-17)",
-        "Jeg er veien og sannheten og livet. (Profeten Jesaja 53:5)",
+        "Jesus svarte og sa til ham: Sannelig, sannelig sier jeg dig: Uten at nogen blir født på ny, kan han ikke se Guds rike. (Johannes' evangelium 3:3)",
+        "<sup>1:3</sup> c <sup>2:1</sup> d <sup>2:2</sup> e (Første Samuelsbok 1:3-2:2)",
+        "<sup>16</sup> For så har Gud elsket verden ... <sup>17</sup> for Gud sendte ikke sin Sønn til verden ... (Johannes' evangelium 3:16-17)",
+        "Men han er såret for våre overtredelser, knust for våre misgjerninger; (Jesajas bok 53:5)",
     ];
     let input: Vec<String> = verses.iter().map(|verse| verse.replace("<sup>", "").replace("</sup>", "")).collect();
     assert_eq!(extract(&input.join("\n\n")), verses.join("\n\n---\n\n") + "\n");
@@ -194,26 +194,26 @@ fn vers_fra_bibel_beholdes_helt_ogsa_med_dialog_og_versnumre() {
 fn norsk_og_engelsk_settes_side_om_side() {
     let input = "Ikke med
 
-For så har Gud elsket verden (Johannes´ evangelium 3:16)
+For så har Gud elsket verden (Johannes' evangelium 3:16)
 For God so loved the world (John 3:16)
 
-Men nå blir de stående disse tre (1. Korinterbrev 13:13)
-Og Gud sa: Bli lys! (1. Mosebok 1:3)";
+Men nu blir de stående disse tre (Første korinterbrev 13:13)
+Da sa Gud: Det bli lys! (Første Mosebok 1:3)";
 
     assert_eq!(
         extract(input),
         r#"<div class="bibel-parallell">
-<p>For så har Gud elsket verden (Johannes´ evangelium 3:16)</p>
+<p>For så har Gud elsket verden (Johannes' evangelium 3:16)</p>
 <p>For God so loved the world (John 3:16)</p>
 </div>
 
 ---
 
-Men nå blir de stående disse tre (1. Korinterbrev 13:13)
+Men nu blir de stående disse tre (Første korinterbrev 13:13)
 
 ---
 
-Og Gud sa: Bli lys! (1. Mosebok 1:3)
+Da sa Gud: Det bli lys! (Første Mosebok 1:3)
 "#
     );
 }
@@ -278,26 +278,26 @@ fn parallelle_kolonner_deles_ved_samme_vers() {
 fn vers_som_star_alene_far_oversettelsen_ved_siden_av() {
     let input = "Prat
 
-Han ble såret for våre overtredelser (Profeten Jesaja 53:5)
+Men han er såret for våre overtredelser (Jesajas bok 53:5)
 
-For så har Gud elsket verden (Johannes´ evangelium 3:16)
+For så har Gud elsket verden (Johannes' evangelium 3:16)
 For God so loved the world (John 3:16)";
 
-    assert_eq!(lone_verse_references(input), strings(&["Profeten Jesaja 53:5"]));
+    assert_eq!(lone_verse_references(input), strings(&["Jesajas bok 53:5"]));
     assert_eq!(
         with_translations(
             input,
-            &[("Profeten Jesaja 53:5", "But he was wounded for our transgressions (Isaiah 53:5)")]
+            &[("Jesajas bok 53:5", "But he was wounded for our transgressions (Isaiah 53:5)")]
         ),
         r#"<div class="bibel-parallell">
-<p>Han ble såret for våre overtredelser (Profeten Jesaja 53:5)</p>
+<p>Men han er såret for våre overtredelser (Jesajas bok 53:5)</p>
 <p>But he was wounded for our transgressions (Isaiah 53:5)</p>
 </div>
 
 ---
 
 <div class="bibel-parallell">
-<p>For så har Gud elsket verden (Johannes´ evangelium 3:16)</p>
+<p>For så har Gud elsket verden (Johannes' evangelium 3:16)</p>
 <p>For God so loved the world (John 3:16)</p>
 </div>
 "#
@@ -320,7 +320,7 @@ fn alle_sitater_blir_slides_uten_gt_bibelsitater_far_oversettelse() {
 > Den som vil vinne, må tåle å tape.
 > – Ukjent
 
-> Herren er min hyrde, jeg mangler ingen ting.
+> Herren er min hyrde, mig fattes intet.
 > (Salmenes bok 23:1)
 
 > [!note] Husk
@@ -340,7 +340,7 @@ fn alle_sitater_blir_slides_uten_gt_bibelsitater_far_oversettelse() {
 ---
 
 <div class="bibel-parallell">
-<p>Herren er min hyrde, jeg mangler ingen ting. (Salmenes bok 23:1)</p>
+<p>Herren er min hyrde, mig fattes intet. (Salmenes bok 23:1)</p>
 <p>The LORD is my shepherd; I shall not want. (Psalms 23:1)</p>
 </div>
 

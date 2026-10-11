@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn sammenslatt_vers_vises_med_intervall() {
-        let mut b = Builder::new("nb24", "Bibel 2024", "");
+        let mut b = Builder::new("test", "Testbibel", "");
         let eph = b.add_book(49, "Eph", "ef", "Efeserne");
         b.add_chapter(
             eph,
@@ -214,12 +214,12 @@ mod tests {
 
         let r = reference::resolve(&bible, "ef1:14-17").unwrap();
         assert_eq!(
-            render(&bible, &r, &o, "Bibel 2024"),
+            render(&bible, &r, &o, "Testbibel"),
             "14 fjorten 15-16 femten og seksten 17 sytten (Efeserne 1:14-17)"
         );
         // Oppslag på 16 alene gir det sammenslåtte verset, uten nabotekst.
         let r = reference::resolve(&bible, "ef1:16").unwrap();
-        assert_eq!(render(&bible, &r, &o, "Bibel 2024"), "femten og seksten (Efeserne 1:16)");
+        assert_eq!(render(&bible, &r, &o, "Testbibel"), "femten og seksten (Efeserne 1:16)");
     }
 
     #[test]

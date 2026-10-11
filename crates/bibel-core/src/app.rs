@@ -32,7 +32,7 @@ REFERANSER
     1sam2          hele kapitlet
     1sam1:20-2:5   fra 1,20 til og med 2,5
     kjv:john3:16   slå opp i en annen oversettelse enn standard
-    nb88+kjv:john3:16
+    nb30+kjv:john3:16
                    flere oversettelser etter hverandre
     sal23:1        forkortelse, osisId (ps23:1), alias (salmene23:1)
                    eller fullt navn («Salmenes bok 23:1») går like bra;
@@ -206,7 +206,7 @@ fn run_into(registry: &Registry, args: &[String], out: &mut String) -> u8 {
                         outln!(out, "  {name:<6} {}", targets.join(" + "));
                     }
                 }
-                outln!(out, "\n* = standard. Velg en annen med «kjv:john3:16», flere med «nb88+kjv:john3:16».");
+                outln!(out, "\n* = standard. Velg en annen med «kjv:john3:16», flere med «nb30+kjv:john3:16».");
                 return 0;
             }
             "--bøker" | "--boker" | "--books" => {
@@ -297,11 +297,12 @@ fn run_into(registry: &Registry, args: &[String], out: &mut String) -> u8 {
     };
 
     // Hver oversettelse slås opp for seg, så ett treff ikke faller bort fordi en
-    // annen mangler boka - Sirak finnes i Bibel 2024, men ikke i KJV.
+    // annen mangler boka. Boknavn fra de andre oversettelsene virker også.
+    let all: Vec<&Bible> = registry.iter().collect();
     let mut parts: Vec<String> = Vec::with_capacity(bibles.len());
     let mut failures = 0;
     for bible in &bibles {
-        match reference::resolve(bible, reference_text) {
+        match reference::resolve_with(bible, reference_text, &all) {
             Ok(r) => parts.push(render::render(bible, &r, &opts, bible.title())),
             Err(e) => {
                 failures += 1;
@@ -444,7 +445,7 @@ mod tests {
         let (bibles, rest) = r.split_prefix(&input);
         assert_eq!(bibles.map(|b| b.len()), Some(2));
         assert_eq!(rest, "john3:16");
-        assert!(r.select("nb88+finnesikke").is_err());
+        assert!(r.select("nb30+finnesikke").is_err());
     }
 
     #[test]
@@ -479,8 +480,8 @@ mod tests {
 
     #[test]
     fn samme_boknavn_virker_i_alle_oversettelsene() {
-        // Datasettene bruker ulike kodeverk: NB88 og KJV har OSIS-id-er, bibel.no
-        // har USFM. Begge formene skal treffe samme bok overalt.
+        // Datasettene kan bruke ulike kodeverk: OSIS-id-er (som nb30 og KJV) eller
+        // USFM. Begge formene skal treffe samme bok overalt.
         let r = registry();
         for (usfm, osis) in bibel_format::books::BOOK_IDS {
             for bible in r.iter() {
@@ -503,8 +504,10 @@ mod tests {
     #[test]
     fn forkortelser_og_navn_virker_pa_tvers_av_oversettelsene() {
         // «ne:1kor13:1» skal treffe 1. Korinterbrev også i KJV, og «e:1cor13:1»
-        // også i NB88: hver oversettelses forkortelser og boknavn må virke i alle.
+        // også i nb30: hver oversettelses forkortelser og boknavn må virke i alle
+        // oversettelsene som er lastet.
         let r = registry();
+        let all: Vec<&Bible> = r.iter().collect();
         let mut feil: Vec<String> = Vec::new();
         for source in r.iter() {
             for book in source.books() {
@@ -512,7 +515,7 @@ mod tests {
                 for form in [book.abbrev, book.name] {
                     let spec = format!("{form} 1:1");
                     for target in r.iter() {
-                        match reference::resolve(target, &spec) {
+                        match reference::resolve_with(target, &spec, &all) {
                             Ok(res) if bibel_format::books::canonical(res.book.osis_id) == wanted => {}
                             Ok(res) => feil.push(format!(
                                 "{} → {} {spec}: havnet i {}",
@@ -543,9 +546,6 @@ mod tests {
                 );
             }
         }
-        // Sirak fantes i Bibel 2024 før filtreringen og skal nå være borte.
-        let Some(nb24) = r.by_id("nb24") else { return };
-        assert!(reference::resolve(nb24, "sir1:1").is_err());
     }
 
     #[test]
@@ -568,7 +568,7 @@ mod tests {
     fn alle_aliaser_peker_pa_en_bok() {
         // Aliasene er norske og kontrolleres mot den norske standardoversettelsen.
         let r = registry();
-        let Some(bible) = r.by_id("nb88") else { return };
+        let Some(bible) = r.by_id("nb30") else { return };
         for (alias, osis) in reference::ALIASES {
             assert!(
                 bible.books().any(|b| b.osis_id == *osis),
@@ -578,21 +578,6 @@ mod tests {
                 .unwrap_or_else(|e| panic!("{alias}: {e}"));
             assert_eq!(resolved.book.osis_id, *osis, "{alias}");
         }
-    }
-
-    #[test]
-    fn sammenslatte_vers_i_ekte_data() {
-        // Efeserne 1,15-16 står som én enhet i Bibel 2024. Begge numrene skal treffe.
-        let r = registry();
-        let Some(bible) = r.by_id("nb24") else { return };
-        let fifteen = reference::resolve(bible, "eph1:15").expect("eph1:15");
-        let sixteen = reference::resolve(bible, "eph1:16").expect("eph1:16");
-        let a = reference::verses(bible, &fifteen);
-        let b = reference::verses(bible, &sixteen);
-        assert_eq!(a.len(), 1);
-        assert_eq!(b.len(), 1);
-        assert_eq!(a[0].1.text, b[0].1.text, "15 og 16 må gi samme vers");
-        assert_eq!(a[0].1.label(), "15-16");
     }
 
     #[test]

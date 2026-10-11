@@ -267,13 +267,15 @@ impl Workspace {
     /// i rapporten for den fila, og de andre importeres likevel.
     pub fn import_word(&self, files: &[ImportRequest], bibel: &Bibel) -> Vec<ImportedFile> {
         let options = crate::word::ConvertOptions::default();
+        let translations =
+            crate::word::import_translations(bibel, &self.settings.default_translation, &self.settings.translation);
         files
             .iter()
             .map(|request| {
                 let name = crate::path_name(&request.path);
                 let result = std::fs::read(&request.file)
                     .map_err(|e| format!("kunne ikke lese fila: {e}"))
-                    .and_then(|data| crate::word::import_docx(&data, bibel, &options))
+                    .and_then(|data| crate::word::import_docx(&data, bibel, &translations, &options))
                     .and_then(|result| self.vault.write_note(&request.path, &result.markdown).map(|()| result));
                 match result {
                     Ok(result) => ImportedFile {
@@ -324,9 +326,9 @@ mod tests {
         let (dir, mut workspace) = temp_workspace("innstillinger");
         assert_eq!(Workspace::open(&dir).unwrap().settings, Settings::default());
         workspace
-            .save_settings(Settings { max_chars: 0, translation: " nb24 ".into(), ..Settings::default() })
+            .save_settings(Settings { max_chars: 0, translation: " nb30 ".into(), ..Settings::default() })
             .unwrap();
-        assert_eq!(workspace.settings.translation, "nb24");
+        assert_eq!(workspace.settings.translation, "nb30");
         assert_eq!(workspace.settings.max_chars, Settings::default().max_chars);
         assert_eq!(Workspace::open(&dir).unwrap().settings, workspace.settings);
         assert!(dir.join(".kerygma/settings.json").is_file());

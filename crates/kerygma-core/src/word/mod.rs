@@ -10,13 +10,32 @@ use crate::bible::Bibel;
 use bible_text::BibelText;
 pub use convert::{convert, ConvertOptions, ConvertResult, FoundQuote};
 
-/// Oversettelsene sitatene i gamle manus sammenlignes med. Den første gir navnet i referansen.
-pub const IMPORT_TRANSLATIONS: &[&str] = &["nb88", "nb24"];
+/// Oversettelsene sitatene i gamle manus sammenlignes med: `first` (standardoversettelsen)
+/// først, siden den gir navnet i referansene, så de andre som er installert, unntatt `beside`
+/// (oversettelsen som legges ved siden av versene, som kjv). Alle norske oversettelser appen
+/// er bygget med, blir dermed med.
+pub fn import_translations(bibel: &Bibel, first: &str, beside: &str) -> Vec<String> {
+    let mut ids: Vec<String> = bibel.ids().into_iter().filter(|id| *id != beside).map(String::from).collect();
+    if let Some(i) = ids.iter().position(|id| id == first) {
+        let first = ids.remove(i);
+        ids.insert(0, first);
+    }
+    ids
+}
 
-/// Gjør en .docx-fil om til markdown.
-pub fn import_docx(data: &[u8], bibel: &Bibel, options: &ConvertOptions) -> Result<ConvertResult, String> {
+/// Gjør en .docx-fil om til markdown, med sitatene sammenlignet med `translations`
+/// (se [`import_translations`]).
+pub fn import_docx(
+    data: &[u8],
+    bibel: &Bibel,
+    translations: &[String],
+    options: &ConvertOptions,
+) -> Result<ConvertResult, String> {
     let paragraphs = docx::read_docx(data)?;
-    let bible = BibelText::new(bibel, IMPORT_TRANSLATIONS)?;
+    let translations: Vec<&str> = translations.iter().map(String::as_str).collect();
+    let bible = BibelText::new(bibel, &translations).map_err(|_| {
+        "Word-importen trenger en norsk oversettelse å sammenligne med (som nb30 i bibler/).".to_string()
+    })?;
     Ok(convert(&paragraphs, &bible, options))
 }
 
