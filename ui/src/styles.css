@@ -853,3 +853,72 @@ button.primary:hover {
   display: block;
   margin-left: auto;
 }
+
+/* --- Talervisning (presenter.ts): manuset i hovedvinduet, slidene på den andre skjermen --- */
+.presenter {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  outline: none;
+}
+.presenter-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.presenter-header h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.presenter-counter {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}
+.presenter-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.presenter-scroll {
+  height: 100%;
+  overflow: auto;
+}
+/* Nok plass under teksten til at det siste i manuset kan rulles opp til leselinja. */
+/* Plassen over teksten settes i presenter.ts (like høy som avstanden til leselinja). */
+.presenter-manuscript {
+  padding: 0 24px 75vh;
+}
+.presenter-reading-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--accent);
+  opacity: 0.45;
+  pointer-events: none;
+}
+/* Alt som er på en slide, svakt; det som vises nå, tydelig. */
+.presenter .slide-part {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-radius: 2px;
+  transition: background-color 0.15s;
+}
+.presenter .slide-part.current {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.presenter img.slide-part.current {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}

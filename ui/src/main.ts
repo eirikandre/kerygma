@@ -2,6 +2,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { api, basename, errorMessage, folderOf, presentationSource, type Tree } from "./api.ts";
 import { loadAppearance, onAppearanceChange, zoomWithWheel } from "./appearance.ts";
 import { confirmDelete, confirmOverwrite, notice } from "./dialogs.ts";
@@ -20,6 +21,8 @@ import {
 import { type IconName, icon, initTooltips, setIcon } from "./icons.ts";
 import { importWord } from "./importReport.ts";
 import { present } from "./present.ts";
+import { monitorCount, otherMonitor, presenterRunning, startPresenter, stopPresenter } from "./presenter.ts";
+import { setSafeHtml } from "./sanitize.ts";
 import { SearchView, searchTerms } from "./search.ts";
 import { openSettings } from "./settings.ts";
 import { TreeView } from "./tree.ts";
@@ -48,6 +51,8 @@ const state = {
   /** Visningen sist valgt i et vanlig notat; presentasjoner åpnes alltid i lesevisning. */
   manuscriptMode: loadManuscriptMode(),
   saveTimer: undefined as number | undefined,
+  /** Med to skjermer kan talervisningen startes fra manuset også. */
+  screens: 1,
 };
 
 type Mode = "edit" | "preview";
@@ -148,7 +153,14 @@ function updatePresentationUi() {
   const manuscript = source && state.path ? `${folderOf(state.path) ? `${folderOf(state.path)}/` : ""}${source}` : undefined;
   const create = $<HTMLButtonElement>("create-presentation");
   // I manuset lager knappen presentasjonen; i presentasjonen kommer ▷ etter den.
-  $("show-presentation").hidden = !source;
+  // Med to skjermer starter ▷ talervisningen, som lager slidene fra manuset, så da vises den i manuset også.
+  $("show-presentation").hidden = !source && !(state.path && state.screens > 1);
+  setIcon(
+    $("show-presentation"),
+    "play",
+    (state.screens > 1 ? "Talervisning på to skjermer (Cmd/Ctrl + Shift + P)" : "Vis presentasjon (Cmd/Ctrl + Shift + P)") +
+      ". Alt-klikk: talervisning i eget vindu",
+  );
   if (source) {
     const exists = !!manuscript && inTree(manuscript);
     create.disabled = !exists;
@@ -251,7 +263,7 @@ async function showMode() {
   updatePresentationUi();
   setIcon($("toggle-preview"), preview ? "pencil" : "eye", preview ? "Rediger (Cmd/Ctrl + E)" : "Lesevisning (Cmd/Ctrl + E)");
   if (preview && state.path) {
-    $("preview").innerHTML = await api.renderNote(state.path, editor.getValue());
+    setSafeHtml($("preview"), await api.renderNote(state.path, editor.getValue()));
   }
 }
 
@@ -271,13 +283,26 @@ async function togglePreview() {
   if (state.mode === "edit") editor.focus();
 }
 
-/** Lenker i lesevisningen: [[Notat]] åpnes i appen, andre lenker i nettleseren. */
+/**
+ * Lenker i lesevisningen: [[Notat]] og [tekst](Notat.md) åpnes i appen, #anker (fotnoter)
+ * rulles til, og nettadresser åpnes i nettleseren. Vinduet skal aldri navigere bort fra appen.
+ */
 $("preview").addEventListener("click", (event) => {
   const link = (event.target as HTMLElement).closest("a");
   if (!link) return;
   event.preventDefault();
-  const target = link.dataset.href;
-  if (target !== undefined && state.path) {
+  const href = link.getAttribute("href") ?? "";
+  if (link.dataset.href === undefined && href.startsWith("#")) {
+    const id = decodeLink(href.slice(1));
+    $("preview").querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ block: "center" });
+    return;
+  }
+  if (link.dataset.href === undefined && /^(https?|mailto|tel):/i.test(href)) {
+    void run(() => openUrl(href));
+    return;
+  }
+  const target = link.dataset.href ?? decodeLink(href);
+  if (target && state.path) {
     const from = state.path;
     void run(async () => {
       const path = await api.resolveLink(target, from);
@@ -286,6 +311,15 @@ $("preview").addEventListener("click", (event) => {
     });
   }
 });
+
+/** `%20` og lignende i lenker til filer, som `[tekst](Mitt%20notat.md)`. */
+function decodeLink(href: string): string {
+  try {
+    return decodeURIComponent(href);
+  } catch {
+    return href;
+  }
+}
 
 async function newNote(folder?: string) {
   if (!state.vaultPath) return;
@@ -394,13 +428,31 @@ async function createPresentation(path = state.path) {
   }
 }
 
-async function showPresentation() {
+/**
+ * «Vis presentasjon». Med to skjermer starter talervisningen (slidene på den andre skjermen,
+ * manuset her). `inWindow`: talervisning med slidene i et vanlig vindu,
+ * uansett hvor mange skjermer det er.
+ */
+async function showPresentation(inWindow = false) {
   if (!state.path) {
-    notice("Åpne en presentasjon først.");
+    notice(inWindow ? "Åpne et manus eller en presentasjon først." : "Åpne en presentasjon først.");
     return;
   }
+  const isPresentation = !!presentationSource(editor.getValue());
+  const target = inWindow ? "window" : await otherMonitor().catch(() => undefined);
+  if (target) {
+    await save();
+    try {
+      await startPresenter(state.path, isPresentation ? null : editor.getValue(), target);
+      return;
+    } catch (error) {
+      // Uten manuset (slettet eller flyttet) vises presentasjonen som før på to skjermer.
+      if (!isPresentation || inWindow) throw error;
+      notice(errorMessage(error), { error: true });
+    }
+  }
   // Presentasjonen startes fra presentasjonen, ikke fra manuset: først lages den, så vises den.
-  if (!presentationSource(editor.getValue())) {
+  if (!isPresentation) {
     notice("Lag presentasjonen først (Cmd/Ctrl + Shift + M). Den åpnes, og der starter du den med ▷.");
     return;
   }
@@ -410,6 +462,14 @@ async function showPresentation() {
     return;
   }
   await present(slides);
+}
+
+/** Ser etter om en skjerm er koblet til eller fra, så ▷ vises i manus når talervisningen kan brukes. */
+async function updateScreens() {
+  const screens = await monitorCount();
+  if (screens === state.screens) return;
+  state.screens = screens;
+  updatePresentationUi();
 }
 
 function insertVerse() {
@@ -451,6 +511,7 @@ const commands: Record<string, () => void | Promise<void>> = {
   "toggle-preview": () => togglePreview(),
   "create-presentation": () => createPresentation(),
   "show-presentation": () => showPresentation(),
+  "presenter-window": () => showPresentation(true),
   "insert-verse": () => insertVerse(),
   search: () => {
     if (state.vaultPath) search.focus();
@@ -465,7 +526,7 @@ function command(id: string) {
   if (lastCommand.id === id && now - lastCommand.at < 300) return;
   lastCommand = { id, at: now };
   // Menyen sender kommandoer også når et modalvindu er åpent; de skal ikke åpne et nytt oppå.
-  if (document.querySelector(".presentation-overlay, .modal-backdrop")) return;
+  if (document.querySelector(".presentation-overlay, .modal-backdrop") || presenterRunning()) return;
   const action = commands[id];
   if (action) void run(async () => action());
 }
@@ -478,11 +539,20 @@ const SHORTCUTS: Array<{ key: string; shift: boolean; id: string }> = [
   { key: "b", shift: true, id: "insert-verse" },
   { key: ",", shift: false, id: "settings" },
   { key: "f", shift: true, id: "search" },
+  // Cmd/Ctrl + Alt + Shift + P (talervisning i eget vindu) håndteres for seg, se under.
 ];
 
 document.addEventListener("keydown", (event) => {
-  if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+  if (!(event.metaKey || event.ctrlKey)) return;
   if (document.querySelector(".modal-backdrop")) return;
+  // Cmd/Ctrl + Alt + Shift + P: Alt endrer tegnet (∏ på Mac), så tasten leses fra `code`.
+  if (event.altKey && event.shiftKey && event.code === "KeyP") {
+    event.preventDefault();
+    event.stopPropagation();
+    command("presenter-window");
+    return;
+  }
+  if (event.altKey) return;
   const shortcut = SHORTCUTS.find((s) => s.key === event.key.toLowerCase() && s.shift === event.shiftKey);
   if (!shortcut) return;
   event.preventDefault();
@@ -490,9 +560,13 @@ document.addEventListener("keydown", (event) => {
   command(shortcut.id);
 });
 
-for (const id of ["toggle-preview", "insert-verse", "create-presentation", "show-presentation"]) {
+for (const id of ["toggle-preview", "insert-verse", "create-presentation"]) {
   $(id).addEventListener("click", () => command(id));
 }
+// Alt-klikk på ▷: talervisning med slidene i et vanlig vindu.
+$("show-presentation").addEventListener("click", (event) =>
+  command(event.altKey ? "presenter-window" : "show-presentation"),
+);
 // Formatering. mousedown hindres, så editoren beholder markeringen når knappen trykkes.
 const FORMAT_BUTTONS: Array<[string, Mark]> = [
   ["format-bold", BOLD],
@@ -523,7 +597,16 @@ void listen<string[]>("vault-changed", (event) => {
   void run(async () => {
     await refreshTree();
     const path = state.path;
-    if (!path || !event.payload.includes(path) || state.dirty) return;
+    if (!path || !event.payload.includes(path)) return;
+    if (state.dirty) {
+      // Ulagrede endringer går foran og lagres om litt, men da forsvinner endringen utenfra.
+      const content = await api.readNote(path).catch(() => undefined);
+      if (content !== undefined && state.path === path && state.dirty && content !== state.saved) {
+        state.saved = content;
+        notice(`«${basename(path)}» ble endret utenfra mens du skrev. Din versjon lagres over den.`, { error: true });
+      }
+      return;
+    }
     let content: string;
     try {
       content = await api.readNote(path);
@@ -549,8 +632,11 @@ void listen<string>("bible-warning", (event) => notice(event.payload, { error: t
 // Lagre før vinduet lukkes.
 void getCurrentWindow().onCloseRequested(async () => {
   await save();
+  await stopPresenter();
 });
 window.addEventListener("blur", () => void save());
+window.addEventListener("focus", () => void updateScreens());
+void updateScreens();
 
 // Åpne mappa fra sist.
 void run(async () => {

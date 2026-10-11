@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use kerygma_core::markdown;
-use kerygma_core::presentation::{presentation_content, presentation_paths_for, presentation_source};
+use kerygma_core::presentation::{presentation_content, presentation_paths_for, presentation_source, slide_options};
 use kerygma_core::settings::Settings;
 use kerygma_core::vault::{Tree, Vault};
 use kerygma_core::verse_query::{self, Suggestion};
@@ -244,6 +244,49 @@ pub fn slides(state: State<AppState>, path: String, content: Option<String>) -> 
     })
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Presenter {
+    /// Manuset slidene er laget fra.
+    path: String,
+    slides: Vec<String>,
+    /// Manuset som HTML, med merkene fra `kerygma_core::presenter`.
+    manuscript: String,
+    warnings: Vec<String>,
+}
+
+/// Talervisningen: slidene lages fra manuset (også når `path` er presentasjonen), og
+/// manuset vises med det som er på hver slide merket. `content` er innholdet i editoren,
+/// så ulagrede endringer blir med; det brukes bare når `path` er selve manuset.
+#[tauri::command(async)]
+pub fn presenter(state: State<AppState>, path: String, content: Option<String>) -> Result<Presenter> {
+    let (vault, settings) = with_vault(&state, |open| Ok((open.vault.clone(), open.settings.clone())))?;
+    let note = match &content {
+        Some(content) => content.clone(),
+        None => vault.read_note(&path)?,
+    };
+    let paths = presentation_paths_for(&path, &note, &settings.suffix);
+    let manuscript = match content {
+        Some(content) if !paths.from_presentation => content,
+        _ => vault
+            .read_note(&paths.manuscript)
+            .map_err(|_| format!("Fant ikke manuset «{}».", paths.manuscript))?,
+    };
+    let (options, warnings) = {
+        let bible = state.bible.lock().unwrap();
+        let bibel = match &*bible {
+            BibleState::Ready(bibel) => Some(bibel),
+            _ => None,
+        };
+        slide_options(&manuscript, &settings, bibel)
+    };
+    let view = {
+        let images = vault.image_resolver(&paths.manuscript);
+        kerygma_core::presenter::presenter_view(&manuscript, &options, &images)
+    };
+    Ok(Presenter { path: paths.manuscript, slides: view.slides, manuscript: view.manuscript, warnings })
+}
+
 #[tauri::command(async)]
 pub fn lookup_verse(state: State<AppState>, input: String) -> Vec<Suggestion> {
     match &*state.bible.lock().unwrap() {
@@ -326,11 +369,15 @@ pub fn import_targets(
             folder if !folder.is_empty() && !folder_chosen => folder.trim_matches('/').to_string(),
             _ => current_folder.trim_matches('/').to_string(),
         };
+        let file_names: Vec<String> = files
+            .iter()
+            .map(|file| std::path::Path::new(file).file_name().unwrap_or_default().to_string_lossy().into_owned())
+            .collect();
+        let names = kerygma_core::word::note_names(&file_names);
         Ok(files
             .into_iter()
-            .map(|file| {
-                let file_name = std::path::Path::new(&file).file_name().unwrap_or_default().to_string_lossy().into_owned();
-                let name = kerygma_core::word::note_name(&file_name);
+            .zip(names)
+            .map(|(file, name)| {
                 let path = if folder.is_empty() { format!("{name}.md") } else { format!("{folder}/{name}.md") };
                 ImportTarget {
                     exists: open.vault.exists(&path),

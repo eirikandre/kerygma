@@ -1,10 +1,12 @@
 // «Vis presentasjon»: samme DOM og CSS som Slides i Obsidian, i fullskjerm.
+// `showDeck` brukes også av vinduet på den andre skjermen i talervisningen (audience.ts).
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Reveal from "reveal.js";
 import revealCss from "reveal.js/dist/reveal.css?url";
 import blackCss from "reveal.js/dist/theme/black.css?url";
 import { api } from "./api.ts";
 import { ditherBackground } from "./dither.ts";
+import { setSafeHtml } from "./sanitize.ts";
 import { applySlideStyle, type SlideStyle } from "./slideThemes.ts";
 
 /** reveal.css, temaet og så slides.css, i den rekkefølgen. Fjernes når visningen avsluttes. */
@@ -29,11 +31,17 @@ async function loadStyles(): Promise<HTMLLinkElement[]> {
   return links;
 }
 
-let running = false;
+export interface Deck {
+  /** Går til slide `index` (fra 0). */
+  slide(index: number): void;
+  destroy(): void;
+}
 
-export async function present(slides: string[]) {
-  if (running || slides.length === 0) return;
-  running = true;
+/**
+ * Slidene over hele vinduet, med temaet fra innstillingene. `keyboard`: piltaster,
+ * mellomrom og PageUp/PageDown blar i reveal.js; uten styres sliden bare med `slide`.
+ */
+export async function showDeck(slides: string[], { keyboard }: { keyboard: boolean }): Promise<Deck> {
   const [links, style] = await Promise.all([
     loadStyles(),
     api.getSettings().then(
@@ -52,14 +60,10 @@ export async function present(slides: string[]) {
   const slidesEl = overlay.querySelector(".slides")!;
   for (const html of slides) {
     const section = document.createElement("section");
-    section.innerHTML = html;
+    setSafeHtml(section, html);
     slidesEl.append(section);
   }
   document.body.append(overlay);
-
-  const appWindow = getCurrentWindow();
-  const wasFullscreen = await appWindow.isFullscreen().catch(() => false);
-  if (!wasFullscreen) await appWindow.setFullscreen(true).catch(() => {});
 
   const reveal = overlay.querySelector<HTMLElement>(".reveal")!;
   applySlideStyle(reveal, style);
@@ -67,23 +71,48 @@ export async function present(slides: string[]) {
   overlay.querySelector<HTMLElement>(".slides-container")!.style.backgroundColor =
     reveal.style.getPropertyValue("--r-background-color");
   const removeBackground = ditherBackground(reveal);
-  const deck = new Reveal(overlay.querySelector<HTMLElement>(".reveal")!, {
+  const deck = new Reveal(reveal, {
     embedded: true,
     controlsTutorial: false,
     overview: false,
     hash: false,
+    keyboard,
+    // Uten tastene styres sliden fra talervisningen: ingen piler eller framdriftslinje,
+    // som ellers ville blitt med når vinduet fanges i OBS.
+    controls: keyboard,
+    progress: keyboard,
     width: 960,
     height: 700,
   });
   await deck.initialize();
-  overlay.querySelector<HTMLElement>(".reveal")!.focus();
+  reveal.focus();
+
+  return {
+    slide: (index) => deck.slide(index),
+    destroy: () => {
+      deck.destroy();
+      removeBackground();
+      overlay.remove();
+      for (const link of links) link.remove();
+    },
+  };
+}
+
+let running = false;
+
+export async function present(slides: string[]) {
+  if (running || slides.length === 0) return;
+  running = true;
+
+  const appWindow = getCurrentWindow();
+  const wasFullscreen = await appWindow.isFullscreen().catch(() => false);
+  const deckPromise = showDeck(slides, { keyboard: true });
+  if (!wasFullscreen) await appWindow.setFullscreen(true).catch(() => {});
+  const deck = await deckPromise;
 
   const close = async () => {
     document.removeEventListener("keydown", onKey, true);
     deck.destroy();
-    removeBackground();
-    overlay.remove();
-    for (const link of links) link.remove();
     if (!wasFullscreen) await appWindow.setFullscreen(false).catch(() => {});
     running = false;
   };

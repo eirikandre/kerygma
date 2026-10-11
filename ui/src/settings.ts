@@ -19,6 +19,10 @@ const DEFAULTS: Settings = {
   quoteFont: "",
 };
 
+/** Felt `Settings::sanitized` trimmer, og felt som får standardverdien når de er tomme. */
+const TRIMMED = new Set<keyof Settings>(["translation", "defaultTranslation", "importFolder"]);
+const REQUIRED = new Set<keyof Settings>(["suffix", "translation", "defaultTranslation"]);
+
 type Field =
   | { key: keyof Settings; name: string; desc: string; type: "text"; placeholder?: string }
   | { key: keyof Settings; name: string; desc: string; type: "toggle" }
@@ -139,7 +143,10 @@ export async function openSettings() {
           record[field.key] = value > 0 ? value : DEFAULTS.maxChars;
           input.value = String(record[field.key]);
         } else {
-          record[field.key] = input.value;
+          // Som `Settings::sanitized` i Rust, så feltet viser det som faktisk lagres.
+          const value = TRIMMED.has(field.key) ? input.value.trim() : input.value;
+          record[field.key] = REQUIRED.has(field.key) && value.trim() === "" ? DEFAULTS[field.key] : value;
+          input.value = String(record[field.key]);
         }
         save();
       });

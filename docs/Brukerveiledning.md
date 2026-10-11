@@ -104,6 +104,28 @@ Presentasjonen fyller hele skjermen. Bla med piltastene, mellomrom eller en fjer
 
 ▷ vises bare i presentasjoner, ikke i manuset. Slik viser du alltid en presentasjon som er laget fra manuset slik det er nå.
 
+### Talervisning med to skjermer
+
+Er en skjerm eller prosjektor koblet til, starter ▷ (eller **Cmd/Ctrl + Shift + P**) talervisningen i stedet. Da vises ▷ også i manuset.
+
+- Slidene vises i fullskjerm på den andre skjermen.
+- Manuset vises i lesevisning i vinduet ditt, uten treet. Vinduet tar ikke over hele skjermen.
+- Alt som kommer på en slide, har en svak farge i manuset. Det som vises nå, er tydelig markert.
+- Rull i manuset mens du taler. Den stiplede linja en tredjedel ned er leselinja. Når neste del av manuset når den, byttes sliden. Tekst som ikke er på noen slide, endrer ingenting: forrige slide blir stående.
+- **→** og **PageDown** går til neste slide, og **←** og **PageUp** til forrige. Det virker også med en fjernkontroll, og manuset rulles dit. **↓** og **↑** ruller manuset, også fra slidevinduet, og sliden byttes når neste del når leselinja. Rullehjulet ruller som vanlig.
+- **Esc**, × øverst til høyre eller å lukke slidevinduet avslutter.
+
+### Talervisning i eget vindu
+
+Velg **Manus → Talervisning i eget vindu**, trykk **Cmd/Ctrl + Alt + Shift + P**, eller Alt-klikk på ▷. Det virker også med bare én skjerm.
+
+- Slidene vises i et vanlig vindu som heter *Kerygma – presentasjon*. I OBS legger du til en kilde for vindusfangst og velger det vinduet. Tittelen er alltid den samme, så OBS finner vinduet igjen neste gang.
+- Første gang er vinduet 1280 × 720 (16:9). Du kan flytte vinduet og endre størrelsen på det, og det åpnes likt neste gang.
+- Vinduet viser bare sliden, uten piler eller framdriftslinje.
+- Alt annet virker som i talervisningen over: rull i manuset, bruk tastene, og avslutt med **Esc** eller ved å lukke vinduet.
+
+Slidene lages fra manuset når talervisningen startes, med de samme reglene som *Lag presentasjon*. Endringer du har gjort for hånd i presentasjonsfila, blir derfor ikke med. Starter du fra en presentasjon som har mistet manuset sitt, vises presentasjonen på vanlig måte.
+
 ## 7. Importere manus fra Word
 
 1. Trykk på dokumentet med pil opp nede i sidefeltet, eller velg **Fil → Importer Word-manus …**. Vil du ha manusene i en bestemt mappe, høyreklikker du på mappa og velger **Importer Word-manus hit …**.

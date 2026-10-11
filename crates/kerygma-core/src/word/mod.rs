@@ -28,3 +28,34 @@ pub fn note_name(file_name: &str) -> String {
         .unwrap_or(file_name);
     stem.split_whitespace().collect::<Vec<_>>().join(" ")
 }
+
+/// Navnene på notatene når flere Word-filer importeres samtidig. To filer med samme
+/// navn (fra forskjellige mapper) skal ikke bli samme notat: den andre blir "Navn 2".
+/// Store og små bokstaver regnes som like, siden filsystemet ofte gjør det.
+pub fn note_names<S: AsRef<str>>(file_names: &[S]) -> Vec<String> {
+    let mut used = std::collections::HashSet::new();
+    file_names
+        .iter()
+        .map(|file_name| {
+            let base = note_name(file_name.as_ref());
+            let name = (1..)
+                .map(|n| if n == 1 { base.clone() } else { format!("{base} {n}") })
+                .find(|name| !used.contains(&name.to_lowercase()))
+                .expect("et ledig navn");
+            used.insert(name.to_lowercase());
+            name
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn like_filnavn_blir_forskjellige_notater() {
+        let names = note_names(&["a/Preken.docx", "Preken.docx", "Annen.docx", "preken.DOCX", "Preken 2.docx"]
+            .map(|path| path.rsplit('/').next().unwrap()));
+        assert_eq!(names, ["Preken", "Preken 2", "Annen", "preken 3", "Preken 2 2"]);
+    }
+}

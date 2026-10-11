@@ -4,8 +4,12 @@
 //! utdataene tegn for tegn. Lengder telles i UTF-16-enheter, som `length` i
 //! JavaScript, så delingen av lange vers blir lik. Indekser i strengene er
 //! byte-indekser, og regnes om til UTF-16 der de sammenlignes med lengder.
+//!
+//! Hver slide vet også hvor i manuset den kommer fra ([`extract_slides`]), så
+//! talervisningen kan markere det som vises.
 
 use std::collections::HashMap;
+use std::ops::Range;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -35,12 +39,72 @@ pub struct SlideOptions {
     pub translations: HashMap<String, String>,
 }
 
+/// En slide i presentasjonen, og hvor den kommer fra i manuset.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Slide {
+    /// Markdown til sliden, som i presentasjonsfila.
+    pub markdown: String,
+    /// Byte-indekser i manuset. Flere når sliden er kolonner med oversettelser som
+    /// står på hver sin linje; tom når teksten ikke står i manuset (en oversettelse
+    /// som er lagt til, eller en tom del av et delt vers).
+    pub source: Vec<Range<usize>>,
+}
+
+/// En tekst og hvor hver byte i den står i manuset.
+#[derive(Debug, Clone)]
+struct Mapped {
+    text: String,
+    /// Byte-indeksen i manuset for hver byte i `text`.
+    map: Vec<usize>,
+}
+
+impl Mapped {
+    /// Linjene (med byte-indeksen der hver starter) skilt med `\n`.
+    fn join(lines: &[(usize, &str)]) -> Mapped {
+        let mut text = String::new();
+        let mut map = Vec::new();
+        for (i, (offset, line)) in lines.iter().enumerate() {
+            if i > 0 {
+                text.push('\n');
+                // Linjeskiftet står rett før neste linje (eller før `\r`, men det er uten betydning her).
+                map.push(offset.saturating_sub(1));
+            }
+            text.push_str(line);
+            map.extend((0..line.len()).map(|b| offset + b));
+        }
+        Mapped { text, map }
+    }
+
+    fn slice(&self, range: Range<usize>) -> Mapped {
+        Mapped { text: self.text[range.clone()].to_string(), map: self.map[range].to_vec() }
+    }
+
+    fn without_prefix(&self, len: usize) -> Mapped {
+        self.slice(len..self.text.len())
+    }
+
+    fn trim(&self) -> Mapped {
+        let start = self.text.len() - self.text.trim_start().len();
+        let end = self.text.trim_end().len().max(start);
+        self.slice(start..end)
+    }
+
+    /// Hvor `range` i teksten står i manuset.
+    fn source(&self, range: Range<usize>) -> Range<usize> {
+        if range.is_empty() {
+            let at = self.map.get(range.start).or(self.map.last()).copied().unwrap_or(0);
+            return at..at;
+        }
+        self.map[range.start]..self.map[range.end - 1] + 1
+    }
+}
+
 /// En overskrift, et bilde, et sitat som ikke er bibeltekst, eller et vers i én eller flere oversettelser.
 #[derive(Debug, Clone)]
 enum Item {
-    Heading(String),
-    Image(String),
-    Quote(String),
+    Heading(String, Range<usize>),
+    Image(String, Range<usize>),
+    Quote(Mapped),
     Verses(Vec<Verse>),
 }
 
@@ -48,6 +112,9 @@ enum Item {
 struct Verse {
     text: String,
     reference: String,
+    /// Teksten og referansen i manuset ("tekst (ref)"), der `text` er starten.
+    /// Mangler for oversettelser som er lagt til.
+    source: Option<Mapped>,
 }
 
 /// Lengden som `length` i JavaScript.
@@ -63,21 +130,57 @@ fn ceil_div(len: usize, max: usize) -> usize {
 /// bibelvers, sitater og bilder. Alt annet fjernes. Hver overskrift, hvert vers
 /// og hvert bilde blir en egen slide, skilt med "---".
 pub fn extract_slide_content(markdown: &str, options: &SlideOptions) -> String {
+    let (frontmatter, slides) = slides_with_frontmatter(markdown, options);
+    let slides: Vec<String> = slides.into_iter().map(|slide| slide.markdown).collect();
+    format!("{frontmatter}{}\n", slides.join("\n\n---\n\n"))
+}
+
+/// Slidene i [`extract_slide_content`] hver for seg, med hvor de kommer fra i manuset.
+pub fn extract_slides(markdown: &str, options: &SlideOptions) -> Vec<Slide> {
+    slides_with_frontmatter(markdown, options).1
+}
+
+fn slides_with_frontmatter(markdown: &str, options: &SlideOptions) -> (String, Vec<Slide>) {
     let max_chars = options.max_chars.unwrap_or(DEFAULT_MAX_CHARS);
     let (frontmatter, items) = parse(markdown);
-    let slides: Vec<String> = items
+    let slides = items
         .into_iter()
         .flat_map(|item| match item {
-            Item::Heading(line) => vec![line],
-            Item::Image(image) => vec![image],
+            Item::Heading(line, source) | Item::Image(line, source) => vec![Slide { markdown: line, source: vec![source] }],
             Item::Quote(quote) => {
-                let parts = ceil_div(len16(&quote), max_chars);
-                balance_emphasis(&split_text(&quote, parts))
+                let parts = split_text(&quote.text, ceil_div(len16(&quote.text), max_chars));
+                let sources = part_sources(&quote, &parts);
+                balance_emphasis(&parts)
+                    .into_iter()
+                    .zip(sources)
+                    .map(|(markdown, source)| Slide { markdown, source: source.into_iter().collect() })
+                    .collect()
             }
             Item::Verses(group) => verse_slides(&with_translation(group, &options.translations), max_chars),
         })
         .collect();
-    format!("{frontmatter}{}\n", slides.join("\n\n---\n\n"))
+    (frontmatter, slides)
+}
+
+/// Hvor hver del av en delt tekst står i manuset. Delene er teksten i rekkefølge
+/// (med versnumre merket med OPEN/CLOSE), og den siste tar med resten, som referansen.
+fn part_sources(source: &Mapped, parts: &[String]) -> Vec<Option<Range<usize>>> {
+    let mut cursor = 0;
+    let last = parts.iter().rposition(|part| !part.is_empty());
+    parts
+        .iter()
+        .enumerate()
+        .map(|(i, part)| {
+            let plain = part.replace([OPEN, CLOSE], "");
+            if plain.is_empty() {
+                return None;
+            }
+            let start = cursor + source.text[cursor..].find(&plain)?;
+            let end = if Some(i) == last { source.text.len() } else { start + plain.len() };
+            cursor = start + plain.len();
+            Some(source.source(start..end))
+        })
+        .collect()
 }
 
 /// Referansene til vers i manuset som bare finnes i én oversettelse.
@@ -92,13 +195,22 @@ pub fn lone_verse_references(markdown: &str) -> Vec<String> {
         .collect()
 }
 
-/// Deler på `\r?\n`, som `split(/\r?\n/)`.
-fn split_lines(markdown: &str) -> Vec<&str> {
-    markdown.split('\n').map(|line| line.strip_suffix('\r').unwrap_or(line)).collect()
+/// Deler på `\r?\n`, som `split(/\r?\n/)`, med byte-indeksen der hver linje starter.
+fn split_lines(markdown: &str) -> Vec<(usize, &str)> {
+    let mut offset = 0;
+    markdown
+        .split('\n')
+        .map(|line| {
+            let start = offset;
+            offset += line.len() + 1;
+            (start, line.strip_suffix('\r').unwrap_or(line))
+        })
+        .collect()
 }
 
 fn parse(markdown: &str) -> (String, Vec<Item>) {
-    let lines = split_lines(markdown);
+    let numbered = split_lines(markdown);
+    let lines: Vec<&str> = numbered.iter().map(|(_, line)| *line).collect();
     let mut items = Vec::new();
     let mut frontmatter = String::new();
     let mut i = 0;
@@ -110,8 +222,8 @@ fn parse(markdown: &str) -> (String, Vec<Item>) {
         }
     }
 
-    let mut block: Vec<&str> = Vec::new();
-    let flush = |block: &mut Vec<&str>, items: &mut Vec<Item>| {
+    let mut block: Vec<(usize, &str)> = Vec::new();
+    let flush = |block: &mut Vec<(usize, &str)>, items: &mut Vec<Item>| {
         if !block.is_empty() {
             items.extend(verses_in_block(block));
         }
@@ -142,9 +254,11 @@ fn parse(markdown: &str) -> (String, Vec<Item>) {
             i += 1;
             continue;
         }
-        if HEADING.is_match(line) {
+        if let Some(m) = HEADING.find(line) {
             flush(&mut block, &mut items);
-            items.push(Item::Heading(line.to_string()));
+            let offset = numbered[i].0;
+            let end = offset + line.trim_end().len();
+            items.push(Item::Heading(line.to_string(), (offset + m.end()).min(end)..end));
             i += 1;
             continue;
         }
@@ -153,12 +267,12 @@ fn parse(markdown: &str) -> (String, Vec<Item>) {
             i += 1;
             continue;
         }
-        let first = block.first().copied().unwrap_or(line);
+        let first = block.first().map_or(line, |(_, first)| *first);
         let starts_new_block = LIST_ITEM.is_match(line) || BLOCKQUOTE.is_match(line) != BLOCKQUOTE.is_match(first);
         if starts_new_block {
             flush(&mut block, &mut items);
         }
-        block.push(line);
+        block.push(numbered[i]);
         i += 1;
     }
     flush(&mut block, &mut items);
@@ -171,54 +285,71 @@ static CHECK_CALLOUT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^\[![^\]|]*\|sjekk\][+-]?[^\n]*\n?").unwrap());
 static CALLOUT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\[![^\]]*\][+-]?\s*").unwrap());
 
+/// Fjerner det `regex` (som starter med `^`) finner først i teksten, som `replace(regex, "")`.
+fn strip_start(text: &Mapped, regex: &Regex) -> Mapped {
+    match regex.find(&text.text) {
+        Some(m) => text.without_prefix(m.end()),
+        None => text.clone(),
+    }
+}
+
 /// Finner bildene og bibelversene i en blokk (avsnitt, listepunkt eller sitat),
 /// eller returnerer sitatet uten `>` hvis det ikke er bibeltekst. Bildene
 /// kommer i rekkefølge med teksten rundt, som behandles hver for seg. Et vers
 /// er teksten fra starten av blokken, eller fra forrige referanse, til og med
 /// referansen. Samme vers i flere oversettelser (`bibel ne:joh3:16`) samles,
 /// så de kan settes side om side.
-fn verses_in_block(block: &[&str]) -> Vec<Item> {
-    let text = block.join("\n");
-    let is_quote = BLOCKQUOTE.is_match(block[0]);
+fn verses_in_block(block: &[(usize, &str)]) -> Vec<Item> {
+    let is_quote = BLOCKQUOTE.is_match(block[0].1);
     // `>` (og `[!type]` i callouts) viser bare i manuset at det er et sitat.
     // `[!warning|sjekk] Hvorfor` merker sitater som bør sjekkes etter import fra
     // Word; tittelen er en beskjed til den som skriver, og blir ikke med.
     let body = if is_quote {
-        let joined = block.iter().map(|line| QUOTE_MARKER.replace(line, "")).collect::<Vec<_>>().join("\n");
-        let without_check = CHECK_CALLOUT.replace(&joined, "");
-        CALLOUT.replace(&without_check, "").trim().to_string()
+        let lines: Vec<(usize, &str)> = block
+            .iter()
+            .map(|&(offset, line)| {
+                let marker = QUOTE_MARKER.find(line).map_or(0, |m| m.end());
+                (offset + marker, &line[marker..])
+            })
+            .collect();
+        strip_start(&strip_start(&Mapped::join(&lines), &CHECK_CALLOUT), &CALLOUT).trim()
     } else {
-        LIST_ITEM.replace(&text, "").into_owned()
+        strip_start(&Mapped::join(block), &LIST_ITEM)
     };
 
     let mut items = Vec::new();
     let mut previous_end = 0;
-    for m in IMAGE.find_iter(&body) {
-        items.extend(verses_in_text(body[previous_end..m.start()].trim(), is_quote));
-        items.push(Item::Image(m.as_str().to_string()));
+    for m in IMAGE.find_iter(&body.text) {
+        items.extend(verses_in_text(&body.slice(previous_end..m.start()).trim(), is_quote));
+        items.push(Item::Image(m.as_str().to_string(), body.source(m.range())));
         previous_end = m.end();
     }
-    items.extend(verses_in_text(body[previous_end..].trim(), is_quote));
+    items.extend(verses_in_text(&body.slice(previous_end..body.text.len()).trim(), is_quote));
     items
 }
 
 static LEADING_PUNCTUATION: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[\s.,;:!?–-]+").unwrap());
 
-fn verses_in_text(body: &str, is_quote: bool) -> Vec<Item> {
-    let references = find_bible_references(body);
+fn verses_in_text(body: &Mapped, is_quote: bool) -> Vec<Item> {
+    let references = find_bible_references(&body.text);
 
     // Sitater blir alltid slides. Er de bibeltekst, behandles de som andre vers.
     if is_quote && references.is_empty() {
-        return if body.is_empty() { vec![] } else { vec![Item::Quote(body.to_string())] };
+        return if body.text.is_empty() { vec![] } else { vec![Item::Quote(body.clone())] };
     }
 
     let mut groups: Vec<Vec<Verse>> = Vec::new();
     let mut previous_end = 0;
     let mut previous_locus: Option<String> = None;
     for reference in references {
+        let raw = &body.text[previous_end..reference.start];
+        let lead = LEADING_PUNCTUATION.find(raw).map_or(0, |m| m.end());
+        let text = raw[lead..].trim();
+        let start = previous_end + lead + (raw[lead..].len() - raw[lead..].trim_start().len());
         let verse = Verse {
-            text: LEADING_PUNCTUATION.replace(&body[previous_end..reference.start], "").trim().to_string(),
+            text: text.to_string(),
             reference: reference.reference.clone(),
+            source: Some(body.slice(start..reference.end)),
         };
         let locus = reference_locus(&reference.reference);
         match groups.last_mut() {
@@ -238,7 +369,11 @@ fn with_translation(group: Vec<Verse>, translations: &HashMap<String, String>) -
     let Some(translated) = translations.get(&group[0].reference) else { return group };
     let Some(reference) = find_bible_references(translated).pop() else { return group };
     let mut group = group;
-    group.push(Verse { text: translated[..reference.start].trim().to_string(), reference: reference.reference });
+    group.push(Verse {
+        text: translated[..reference.start].trim().to_string(),
+        reference: reference.reference,
+        source: None,
+    });
     group
 }
 
@@ -248,7 +383,7 @@ const CLOSE: char = '\u{E001}';
 static MARKED_NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new("\u{E000}([^\u{E001}]*)\u{E001}").unwrap());
 
 /// Ett vers blir én eller flere slides; flere oversettelser blir kolonner.
-fn verse_slides(translations: &[Verse], max_chars: usize) -> Vec<String> {
+fn verse_slides(translations: &[Verse], max_chars: usize) -> Vec<Slide> {
     let render = |text: &str, verse: &Verse, html: bool| {
         // Markdown virker ikke inne i HTML, så fet og kursiv blir <strong> og <em> i kolonnene.
         let text = if html { emphasis_to_html(&escape_html(text)) } else { text.to_string() };
@@ -260,18 +395,32 @@ fn verse_slides(translations: &[Verse], max_chars: usize) -> Vec<String> {
         }
     };
     let texts: Vec<String> = translations.iter().map(|verse| mark_verse_numbers(&verse.text)).collect();
+    // Hvor del `i` av hver oversettelse står i manuset.
+    let sources = |columns: &[Vec<String>]| -> Vec<Vec<Range<usize>>> {
+        let per_verse: Vec<Vec<Option<Range<usize>>>> = translations
+            .iter()
+            .zip(columns)
+            .map(|(verse, parts)| verse.source.as_ref().map_or(vec![None; parts.len()], |s| part_sources(s, parts)))
+            .collect();
+        let parts = columns.iter().map(Vec::len).max().unwrap_or(0);
+        (0..parts).map(|i| per_verse.iter().filter_map(|v| v.get(i).cloned().flatten()).collect()).collect()
+    };
 
     if translations.len() == 1 {
-        let parts = ceil_div(len16(&translations[0].text), max_chars);
-        return balance_emphasis(&split_text(&texts[0], parts))
+        let parts = split_text(&texts[0], ceil_div(len16(&translations[0].text), max_chars));
+        let sources = sources(std::slice::from_ref(&parts));
+        return balance_emphasis(&parts)
             .iter()
-            .map(|part| render(part, &translations[0], false))
+            .zip(sources)
+            .map(|(part, source)| Slide { markdown: render(part, &translations[0], false), source })
             .collect();
     }
 
     let column_chars = (max_chars as f64 * COLUMN_SHARE).round() as usize;
     let parts = translations.iter().map(|verse| ceil_div(len16(&verse.text), column_chars)).max().unwrap_or(0);
-    let columns: Vec<Vec<String>> = split_parallel(&texts, parts).iter().map(|c| balance_emphasis(c)).collect();
+    let raw = split_parallel(&texts, parts);
+    let mut sources = sources(&raw);
+    let columns: Vec<Vec<String>> = raw.iter().map(|c| balance_emphasis(c)).collect();
     (0..parts.max(1))
         .map(|i| {
             let mut lines = vec![r#"<div class="bibel-parallell">"#.to_string()];
@@ -279,7 +428,8 @@ fn verse_slides(translations: &[Verse], max_chars: usize) -> Vec<String> {
                 lines.push(format!("<p>{}</p>", render(&columns[column][i], verse, true)));
             }
             lines.push("</div>".to_string());
-            lines.join("\n")
+            let source = if i < sources.len() { std::mem::take(&mut sources[i]) } else { Vec::new() };
+            Slide { markdown: lines.join("\n"), source }
         })
         .collect()
 }

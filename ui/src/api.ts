@@ -54,6 +54,16 @@ export type CreateResult =
   | { kind: "missingManuscript"; path: string }
   | { kind: "isFolder"; path: string };
 
+/** Talervisningen: slidene laget fra manuset, og manuset med merker for hver slide. */
+export interface Presenter {
+  /** Manuset slidene er laget fra. */
+  path: string;
+  slides: string[];
+  /** Manuset som HTML, med merkene fra `kerygma_core::presenter`. */
+  manuscript: string;
+  warnings: string[];
+}
+
 export interface Suggestion {
   /** Teksten som settes inn. Mangler når forslaget bare er en melding. */
   text?: string;
@@ -97,6 +107,7 @@ export const api = {
   createPresentation: (path: string, content: string | null, overwrite: boolean) =>
     invoke<CreateResult>("create_presentation", { path, content, overwrite }),
   slides: (path: string, content: string | null) => invoke<string[]>("slides", { path, content }),
+  presenter: (path: string, content: string | null) => invoke<Presenter>("presenter", { path, content }),
   lookupVerse: (input: string) => invoke<Suggestion[]>("lookup_verse", { input }),
   quoteVerse: (verse: string, before: string, after: string) => invoke<string>("quote_verse", { verse, before, after }),
   getSettings: () => invoke<Settings>("get_settings"),

@@ -97,6 +97,13 @@ pub fn presentation_content(
     settings: &Settings,
     bibel: Option<&Bibel>,
 ) -> (String, Vec<String>) {
+    let (options, warnings) = slide_options(manuscript, settings, bibel);
+    (with_marker(&extract_slide_content(manuscript, &options), source), warnings)
+}
+
+/// Innstillingene til slidene: maks tegn, og oversettelsene som legges ved siden
+/// av vers som står alene. Meldingene sier hvorfor oversettelsen ikke kunne legges til.
+pub fn slide_options(manuscript: &str, settings: &Settings, bibel: Option<&Bibel>) -> (SlideOptions, Vec<String>) {
     let mut warnings = Vec::new();
     let mut options = SlideOptions { max_chars: Some(settings.max_chars), ..Default::default() };
     if settings.add_translation {
@@ -112,7 +119,7 @@ pub fn presentation_content(
             },
         }
     }
-    (with_marker(&extract_slide_content(manuscript, &options), source), warnings)
+    (options, warnings)
 }
 
 #[cfg(test)]

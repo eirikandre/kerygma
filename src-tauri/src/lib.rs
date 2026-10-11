@@ -79,6 +79,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .separator()
         .item(&item(app, "create-presentation", "Lag presentasjon av manus", "CmdOrCtrl+Shift+M")?)
         .item(&item(app, "show-presentation", "Vis presentasjon", "CmdOrCtrl+Shift+P")?)
+        .item(&item(app, "presenter-window", "Talervisning i eget vindu", "CmdOrCtrl+Alt+Shift+P")?)
         .item(&item(app, "insert-verse", "Sett inn bibelvers …", "CmdOrCtrl+Shift+B")?)
         .build()?;
     let window = SubmenuBuilder::new(app, "Vindu")
@@ -111,6 +112,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
         .setup(|app| {
             let handle = app.handle();
@@ -138,6 +140,7 @@ pub fn run() {
             commands::resolve_link,
             commands::create_presentation,
             commands::slides,
+            commands::presenter,
             commands::lookup_verse,
             commands::quote_verse,
             commands::get_settings,
