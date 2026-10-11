@@ -34,14 +34,30 @@ async function loadStyles(): Promise<HTMLLinkElement[]> {
 export interface Deck {
   /** Går til slide `index` (fra 0). */
   slide(index: number): void;
+  /** Elementet med slidene (`.reveal`). */
+  element: HTMLElement;
   destroy(): void;
 }
+
+/** Størrelsen på en slide i reveal.js. */
+export const SLIDE_WIDTH = 960;
+export const SLIDE_HEIGHT = 700;
+/**
+ * Størrelsen på en slide i eksporten: 16:9, i samme skala som på skjermen (tekst i samme
+ * størrelse i forhold til høyden). PDF-siden skaleres til full HD (1920 × 1080) etterpå.
+ */
+export const EXPORT_WIDTH = 1280;
+export const EXPORT_HEIGHT = 720;
 
 /**
  * Slidene over hele vinduet, med temaet fra innstillingene. `keyboard`: piltaster,
  * mellomrom og PageUp/PageDown blar i reveal.js; uten styres sliden bare med `slide`.
+ * `exact` (til PDF): 16:9 øverst til venstre, så stor som vinduet tillater, og uten overganger.
  */
-export async function showDeck(slides: string[], { keyboard }: { keyboard: boolean }): Promise<Deck> {
+export async function showDeck(
+  slides: string[],
+  { keyboard, exact = false }: { keyboard: boolean; exact?: boolean },
+): Promise<Deck> {
   const [links, style] = await Promise.all([
     loadStyles(),
     api.getSettings().then(
@@ -56,6 +72,18 @@ export async function showDeck(slides: string[], { keyboard }: { keyboard: boole
 
   const overlay = document.createElement("div");
   overlay.className = "presentation-overlay";
+  if (exact) {
+    // Sliden holdes innenfor vinduet, så hele er tegnet når PDF-siden lages. Størrelsen her betyr
+    // ikke noe for PDF-en: siden skaleres til full HD etterpå.
+    const fit = Math.min(1, window.innerWidth / EXPORT_WIDTH, window.innerHeight / EXPORT_HEIGHT);
+    Object.assign(overlay.style, {
+      inset: "auto",
+      left: "0",
+      top: "0",
+      width: `${Math.floor(EXPORT_WIDTH * fit)}px`,
+      height: `${Math.floor(EXPORT_HEIGHT * fit)}px`,
+    });
+  }
   overlay.innerHTML = `<div class="slides-container"><div class="reveal"><div class="slides"></div></div></div>`;
   const slidesEl = overlay.querySelector(".slides")!;
   for (const html of slides) {
@@ -66,11 +94,12 @@ export async function showDeck(slides: string[], { keyboard }: { keyboard: boole
   document.body.append(overlay);
 
   const reveal = overlay.querySelector<HTMLElement>(".reveal")!;
-  applySlideStyle(reveal, style);
+  applySlideStyle(reveal, style, { opaque: exact });
   // slides.css gir .slides-container samme bakgrunn, men leser fargen fra .reveal.
   overlay.querySelector<HTMLElement>(".slides-container")!.style.backgroundColor =
     reveal.style.getPropertyValue("--r-background-color");
-  const removeBackground = ditherBackground(reveal);
+  // I PDF-en tegnes graderingen av CSS (som vektor); støyen i dither.ts ville blitt et stort bilde per side.
+  const removeBackground = exact ? () => {} : ditherBackground(reveal);
   const deck = new Reveal(reveal, {
     embedded: true,
     controlsTutorial: false,
@@ -81,14 +110,16 @@ export async function showDeck(slides: string[], { keyboard }: { keyboard: boole
     // som ellers ville blitt med når vinduet fanges i OBS.
     controls: keyboard,
     progress: keyboard,
-    width: 960,
-    height: 700,
+    width: exact ? EXPORT_WIDTH : SLIDE_WIDTH,
+    height: exact ? EXPORT_HEIGHT : SLIDE_HEIGHT,
+    ...(exact ? { transition: "none" as const, backgroundTransition: "none" as const } : {}),
   });
   await deck.initialize();
   reveal.focus();
 
   return {
     slide: (index) => deck.slide(index),
+    element: reveal,
     destroy: () => {
       deck.destroy();
       removeBackground();

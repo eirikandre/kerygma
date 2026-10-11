@@ -347,7 +347,8 @@ fn valid_name(name: &str) -> Result<&str, String> {
     Ok(name)
 }
 
-fn percent_decode(text: &str) -> String {
+/// `%20` og lignende i en URL-del gjort om til tegn (ugyldige `%` beholdes).
+pub fn percent_decode(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;

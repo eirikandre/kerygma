@@ -126,6 +126,14 @@ Velg **Manus → Talervisning i eget vindu**, trykk **Cmd/Ctrl + Alt + Shift + P
 
 Slidene lages fra manuset når talervisningen startes, med de samme reglene som *Lag presentasjon*. Endringer du har gjort for hånd i presentasjonsfila, blir derfor ikke med. Starter du fra en presentasjon som har mistet manuset sitt, vises presentasjonen på vanlig måte.
 
+### Eksportere til PDF, PowerPoint og HTML
+
+Velg **Manus → Eksporter presentasjonen som PDF …**, **… som PowerPoint …** eller **… som HTML …**, eller høyreklikk på manuset eller presentasjonen i treet. Det som eksporteres er presentasjonen, det samme som ▷ viser, i bredformat (16:9) og full HD (1920 × 1080) for PDF og PowerPoint. Fra et manus brukes presentasjonen som er laget fra det, så den må lages først. Du velger hvor fila skal lagres.
+
+- **PDF:** én slide per side (1920 × 1080), slik den ser ut i appen, med temaet og skriftene. Slidene er bredere enn på skjermen, så linjene blir lengre. Teksten kan markeres og søkes i. Eksport til PDF virker foreløpig bare på macOS.
+- **PowerPoint:** bredformat (13,33 × 7,5 tommer, som blir 1920 × 1080 når PowerPoint lager bilder eller video). Hver slide får tekstbokser du kan rette i PowerPoint eller Keynote, med farger og skrift fra temaet. Den ligner presentasjonen, men er ikke helt lik. Skriftene Lora og Montserrat er ikke med i fila, så installer dem på maskinen der fila åpnes, ellers brukes en annen skrift.
+- **HTML:** én fil som åpnes i en nettleser og vises som ▷ i appen, med temaet, skriftene og bildene bygget inn. Den virker uten appen og uten nett, så den kan sendes til andre eller vises fra en annen maskin. Bla med piltastene, og trykk F for fullskjerm.
+
 ## 7. Importere manus fra Word
 
 1. Trykk på dokumentet med pil opp nede i sidefeltet, eller velg **Fil → Importer Word-manus …**. Vil du ha manusene i en bestemt mappe, høyreklikker du på mappa og velger **Importer Word-manus hit …**.

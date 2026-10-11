@@ -287,6 +287,65 @@ pub fn presenter(state: State<AppState>, path: String, content: Option<String>) 
     Ok(Presenter { path: paths.manuscript, slides: view.slides, manuscript: view.manuscript, warnings })
 }
 
+/// Presentasjonen som eksporteres: notatet selv hvis det er en presentasjon, ellers
+/// presentasjonen som er laget fra manuset. `None` når den ikke er laget ennå.
+#[tauri::command]
+pub fn presentation_path(state: State<AppState>, path: String, content: String) -> Result<Option<String>> {
+    with_vault(&state, |open| {
+        let paths = presentation_paths_for(&path, &content, &open.settings.suffix);
+        Ok(open.vault.exists(&paths.presentation).then_some(paths.presentation))
+    })
+}
+
+/// Starter en PDF-eksport: sidene som er laget før, glemmes.
+#[tauri::command]
+pub fn pdf_begin(state: State<AppState>) {
+    state.pdf_pages.lock().unwrap().clear();
+}
+
+/// Lager en PDF-side av `rect` i vinduet (sliden som vises) og legger den til.
+#[tauri::command(async)]
+pub fn pdf_page(webview: tauri::Webview, state: State<'_, AppState>, rect: crate::capture::Rect) -> Result<()> {
+    let page = crate::capture::pdf(&webview, rect)?;
+    state.pdf_pages.lock().unwrap().push(page);
+    Ok(())
+}
+
+/// Slår sammen sidene, skalert til full HD, og lagrer PDF-en på `path` (absolutt sti valgt av brukeren).
+#[tauri::command(async)]
+pub fn pdf_save(state: State<'_, AppState>, path: String) -> Result<()> {
+    let pages = std::mem::take(&mut *state.pdf_pages.lock().unwrap());
+    let pdf = kerygma_core::pdf::merge(&pages, Some(kerygma_core::pdf::FULL_HD))?;
+    write_export(&path, &pdf, "pdf")
+}
+
+/// Lagrer en eksportert fil (PowerPoint eller HTML), med innholdet som rå bytes og stien i
+/// overskriften `path` (URL-kodet). Stien er valgt av brukeren i et lagringsvindu.
+#[tauri::command(async)]
+pub fn save_export(request: tauri::ipc::Request<'_>) -> Result<()> {
+    let tauri::ipc::InvokeBody::Raw(data) = request.body() else {
+        return Err("Fila mangler innhold.".to_string());
+    };
+    let path = request
+        .headers()
+        .get("path")
+        .and_then(|value| value.to_str().ok())
+        .map(kerygma_core::vault::percent_decode)
+        .ok_or("Fila mangler sti.")?;
+    let extension = std::path::Path::new(&path).extension().and_then(|e| e.to_str()).unwrap_or("");
+    let extension = if extension.eq_ignore_ascii_case("html") { "html" } else { "pptx" };
+    write_export(&path, data, extension)
+}
+
+/// Skriver bare filer med filtypen eksporten lager, så kommandoen ikke kan brukes til annet.
+fn write_export(path: &str, data: &[u8], extension: &str) -> Result<()> {
+    let path = std::path::Path::new(path);
+    if !path.is_absolute() || !path.extension().is_some_and(|e| e.eq_ignore_ascii_case(extension)) {
+        return Err(format!("Kan bare lagre .{extension}-filer."));
+    }
+    std::fs::write(path, data).map_err(|e| format!("Kunne ikke lagre «{}»: {e}", path.display()))
+}
+
 #[tauri::command(async)]
 pub fn lookup_verse(state: State<AppState>, input: String) -> Vec<Suggestion> {
     match &*state.bible.lock().unwrap() {

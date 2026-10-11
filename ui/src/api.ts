@@ -108,6 +108,8 @@ export const api = {
     invoke<CreateResult>("create_presentation", { path, content, overwrite }),
   slides: (path: string, content: string | null) => invoke<string[]>("slides", { path, content }),
   presenter: (path: string, content: string | null) => invoke<Presenter>("presenter", { path, content }),
+  /** Presentasjonen som eksporteres fra notatet, eller null når den ikke er laget. */
+  presentationPath: (path: string, content: string) => invoke<string | null>("presentation_path", { path, content }),
   lookupVerse: (input: string) => invoke<Suggestion[]>("lookup_verse", { input }),
   quoteVerse: (verse: string, before: string, after: string) => invoke<string>("quote_verse", { verse, before, after }),
   getSettings: () => invoke<Settings>("get_settings"),

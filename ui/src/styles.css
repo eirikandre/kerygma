@@ -922,3 +922,18 @@ button.primary:hover {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* --- Eksport til PDF (export.ts): bakgrunnen mens den lages. Teksten plasseres ved siden av
+   sliden (i export.ts), så den ikke kommer med i PDF-en. --- */
+.export-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.export-backdrop p {
+  position: absolute;
+  margin: 0;
+}

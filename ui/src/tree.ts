@@ -1,6 +1,7 @@
 // Treet med mapper og filer i vaulten.
 import type { Tree } from "./api.ts";
 import { contextMenu } from "./dialogs.ts";
+import type { ExportKind } from "./export.ts";
 
 export interface TreeActions {
   open(path: string): void;
@@ -9,6 +10,7 @@ export interface TreeActions {
   rename(path: string, newName: string): Promise<void>;
   delete(path: string, name: string): void;
   createPresentation(path: string): void;
+  exportPresentation(path: string, kind: ExportKind): void;
   importWord(folder: string): void;
 }
 
@@ -159,7 +161,12 @@ export class TreeView {
         { label: "Slett", danger: true, action: () => this.actions.delete(node.path, node.name) },
       ];
       if (node.kind === "Note") {
-        items.push({ label: "Lag presentasjon", action: () => this.actions.createPresentation(node.path) });
+        items.push(
+          { label: "Lag presentasjon", action: () => this.actions.createPresentation(node.path) },
+          { label: "Eksporter presentasjonen som PDF …", action: () => this.actions.exportPresentation(node.path, "pdf") },
+          { label: "Eksporter presentasjonen som PowerPoint …", action: () => this.actions.exportPresentation(node.path, "pptx") },
+          { label: "Eksporter presentasjonen som HTML …", action: () => this.actions.exportPresentation(node.path, "html") },
+        );
       }
       row.addEventListener("contextmenu", (event) => contextMenu(event, items));
     }

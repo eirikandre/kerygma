@@ -1,12 +1,13 @@
 // Appen: treet til venstre, én fil om gangen i editoren til høyre.
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { api, basename, errorMessage, folderOf, presentationSource, type Tree } from "./api.ts";
 import { loadAppearance, onAppearanceChange, zoomWithWheel } from "./appearance.ts";
 import { confirmDelete, confirmOverwrite, notice } from "./dialogs.ts";
 import { Editor } from "./editor.ts";
+import type { ExportKind } from "./export.ts";
 import {
   BOLD,
   ITALIC,
@@ -98,6 +99,7 @@ const tree = new TreeView($("tree"), {
   rename: (path, name) => run(() => renamePath(path, name)),
   delete: (path, name) => void run(() => deletePath(path, name)),
   createPresentation: (path) => void run(() => createPresentation(path)),
+  exportPresentation: (path, kind) => void run(() => exportPresentation(kind, path)),
   importWord: (folder) => void run(() => importWordTo(folder, true)),
 });
 
@@ -472,6 +474,44 @@ async function updateScreens() {
   updatePresentationUi();
 }
 
+/**
+ * Eksporterer presentasjonen til PDF, PowerPoint eller HTML: presentasjonen selv, eller den som
+ * er laget fra manuset. Fila lagres der brukeren velger, foreslått ved siden av presentasjonen.
+ */
+async function exportPresentation(kind: ExportKind, path = state.path) {
+  if (!path || !state.vaultPath) {
+    notice("Åpne et manus eller en presentasjon først.");
+    return;
+  }
+  await save();
+  const content = path === state.path ? editor.getValue() : await api.readNote(path);
+  const presentation = await api.presentationPath(path, content);
+  if (!presentation) {
+    notice("Lag presentasjonen først (Cmd/Ctrl + Shift + M), så eksporteres den.");
+    return;
+  }
+  const slides = await api.slides(presentation, presentation === state.path ? editor.getValue() : null);
+  if (slides.length === 0) {
+    notice("Det er ingenting å eksportere.");
+    return;
+  }
+  // pptxgenjs er stor, så eksporten lastes først når den brukes.
+  const { exportFileName, exportHtml, exportPdf, exportPptx } = await import("./export.ts");
+  const folder = folderOf(presentation);
+  const name = exportFileName(presentation, kind);
+  const format = { pdf: "PDF", pptx: "PowerPoint", html: "HTML" }[kind];
+  const target = await saveDialog({
+    title: `Eksporter som ${format}`,
+    defaultPath: [state.vaultPath, folder, name].filter(Boolean).join("/"),
+    filters: [{ name: format, extensions: [kind] }],
+  });
+  if (!target) return;
+  if (kind === "pdf") await exportPdf(slides, target);
+  else if (kind === "pptx") await exportPptx(slides, target, basename(presentation));
+  else await exportHtml(slides, target, basename(presentation));
+  notice(`Eksportert: ${target.split(/[\\/]/).pop()}`);
+}
+
 function insertVerse() {
   if (!state.path) {
     notice("Åpne et notat og sett markøren der verset skal inn.");
@@ -512,6 +552,9 @@ const commands: Record<string, () => void | Promise<void>> = {
   "create-presentation": () => createPresentation(),
   "show-presentation": () => showPresentation(),
   "presenter-window": () => showPresentation(true),
+  "export-pdf": () => exportPresentation("pdf"),
+  "export-pptx": () => exportPresentation("pptx"),
+  "export-html": () => exportPresentation("html"),
   "insert-verse": () => insertVerse(),
   search: () => {
     if (state.vaultPath) search.focus();

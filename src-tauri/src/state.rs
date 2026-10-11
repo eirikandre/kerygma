@@ -31,11 +31,13 @@ impl OpenVault {
 pub struct AppState {
     pub vault: Mutex<Option<OpenVault>>,
     pub bible: Mutex<BibleState>,
+    /// Sidene til PDF-en som eksporteres (én PDF per slide), til de slås sammen.
+    pub pdf_pages: Mutex<Vec<Vec<u8>>>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
-        AppState { vault: Mutex::new(None), bible: Mutex::new(BibleState::Loading) }
+        AppState { vault: Mutex::new(None), bible: Mutex::new(BibleState::Loading), pdf_pages: Mutex::new(Vec::new()) }
     }
 }
 

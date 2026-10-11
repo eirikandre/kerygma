@@ -4,6 +4,7 @@ pub mod bible;
 pub mod book_names;
 pub mod extract;
 pub mod markdown;
+pub mod pdf;
 pub mod presentation;
 pub mod presenter;
 pub mod reference;

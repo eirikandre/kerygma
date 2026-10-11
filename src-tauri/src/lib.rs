@@ -1,6 +1,7 @@
 //! Kerygma som skrivebordsapp. All logikk ligger i `kerygma-core`; her er
 //! vinduet, menyen, kommandoene og lastingen av biblene.
 
+mod capture;
 mod commands;
 mod state;
 
@@ -81,6 +82,10 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .item(&item(app, "show-presentation", "Vis presentasjon", "CmdOrCtrl+Shift+P")?)
         .item(&item(app, "presenter-window", "Talervisning i eget vindu", "CmdOrCtrl+Alt+Shift+P")?)
         .item(&item(app, "insert-verse", "Sett inn bibelvers …", "CmdOrCtrl+Shift+B")?)
+        .separator()
+        .item(&item(app, "export-pdf", "Eksporter presentasjonen som PDF …", "")?)
+        .item(&item(app, "export-pptx", "Eksporter presentasjonen som PowerPoint …", "")?)
+        .item(&item(app, "export-html", "Eksporter presentasjonen som HTML …", "")?)
         .build()?;
     let window = SubmenuBuilder::new(app, "Vindu")
         .item(&PredefinedMenuItem::minimize(app, Some("Minimer"))?)
@@ -141,6 +146,11 @@ pub fn run() {
             commands::create_presentation,
             commands::slides,
             commands::presenter,
+            commands::presentation_path,
+            commands::pdf_begin,
+            commands::pdf_page,
+            commands::pdf_save,
+            commands::save_export,
             commands::lookup_verse,
             commands::quote_verse,
             commands::get_settings,
