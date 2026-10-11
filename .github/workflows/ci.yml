@@ -1,0 +1,63 @@
+# Tester og sjekker på macOS og Windows for hver push og pull request.
+#
+# `bibel-core` hentes fra et privat repo over ssh. Legg en deploy-nøkkel (bare lesing) for
+# eirikandre/bible inn som hemmeligheten BIBEL_DEPLOY_KEY i dette repoet.
+# Biblene (*.bin) er ikke i git, så testene som trenger dem, hoppes over.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.BIBEL_DEPLOY_KEY }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      # Appen bygges med grensesnittet, så det må finnes.
+      - run: npm ci
+        working-directory: ui
+      - run: npm run build
+        working-directory: ui
+      # Med testen som sjekker at ui/src/bindings.ts er laget fra kommandoene slik de er nå.
+      - run: cargo test --workspace
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  ui:
+    name: Grensesnittet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - run: npx tsc --noEmit
+        working-directory: ui
+      - run: npm test
+        working-directory: ui
