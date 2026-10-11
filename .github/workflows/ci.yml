@@ -1,7 +1,4 @@
 # Tester og sjekker på macOS og Windows for hver push og pull request.
-#
-# `bibel-core` hentes fra et privat repo over ssh. Legg en deploy-nøkkel (bare lesing) for
-# eirikandre/bible inn som hemmeligheten BIBEL_DEPLOY_KEY i dette repoet.
 # Biblene (*.bin) er ikke i git, så testene som trenger dem, hoppes over.
 name: CI
 
@@ -24,9 +21,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.BIBEL_DEPLOY_KEY }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy

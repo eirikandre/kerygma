@@ -1,0 +1,8 @@
+[package]
+name = "bibel-format"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.70"
+description = "Kompakt binærformat for bibeltekst, lesbart uten allokering"
+
+[dependencies]

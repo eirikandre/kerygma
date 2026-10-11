@@ -1,4 +1,4 @@
-//! `bibel` fra bible-repoet, med oversettelsene (`*.bin`) lest fra disk.
+//! `bibel-core` med oversettelsene (`bibler/*.bin`) lest fra disk.
 //!
 //! `bibel-core` brukes gjennom `run`, med de samme argumentene og svarene som
 //! kjørbaren `bibel`, så oppslag og søk oppfører seg som på kommandolinjen.
@@ -89,11 +89,10 @@ impl Bibel {
         self.configure(&BibelConfig { default_translation: default, aliases: aliases.to_string() })
     }
 
-    /// Kjører `bibel` med argumentene, som kjørbaren i bible-repoet.
+    /// Kjører `bibel` med argumentene, som kommandoen `bibel` i bible-repoet.
     pub fn run<S: AsRef<str>>(&self, args: &[S]) -> Output {
         let args: Vec<String> = args.iter().map(|a| a.as_ref().to_string()).collect();
-        // Ingen miljøvariabler: ESPANSO_REF hører til espanso-oppsettet.
-        bibel_core::run(&self.registry, &args, |_| None)
+        bibel_core::run(&self.registry, &args)
     }
 
     /// Id-ene til oversettelsene, som "kjv".

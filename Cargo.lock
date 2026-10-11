@@ -266,7 +266,6 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 [[package]]
 name = "bibel-core"
 version = "0.1.0"
-source = "git+ssh://git@github.com/eirikandre/bible.git?rev=9012cdd#9012cdd4f777fc3e093f64fbed700e99324392fd"
 dependencies = [
  "bibel-format",
 ]
@@ -274,7 +273,6 @@ dependencies = [
 [[package]]
 name = "bibel-format"
 version = "0.1.0"
-source = "git+ssh://git@github.com/eirikandre/bible.git?rev=9012cdd#9012cdd4f777fc3e093f64fbed700e99324392fd"
 
 [[package]]
 name = "bit-set"

@@ -1,0 +1,9 @@
+[package]
+name = "bibel-core"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.70"
+description = "Oppslag, søk og formatering av bibelvers i Kerygma"
+
+[dependencies]
+bibel-format = { path = "../bibel-format" }

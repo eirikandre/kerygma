@@ -5,9 +5,7 @@ edition.workspace = true
 description = "Logikken i Kerygma: presentasjoner, bibelreferanser, bibeloppslag og Word-import"
 
 [dependencies]
-bibel-core = { git = "ssh://git@github.com/eirikandre/bible.git", rev = "9012cdd" }
-# Under utvikling, når ../bible ligger ved siden av:
-# bibel-core = { path = "../../../bible/crates/bibel-core" }
+bibel-core = { path = "../bibel-core" }
 regex = "1"
 fancy-regex = "0.14"
 serde = { version = "1.0.229", features = ["derive"] }

@@ -1,3 +1,0 @@
-[net]
-# Bruker git og ssh-agenten, så bibel-core kan hentes fra det private repoet.
-git-fetch-with-cli = true
