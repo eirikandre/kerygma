@@ -39,8 +39,14 @@ Kerygma er en Tauri 2-app. All logikk som kan testes uten vindu, ligger i Rust-c
                         │ app_config, json, pdf, word/*                │
                         └──────────────┬───────────────────────────────┘
                                        ▼
-                        bibel-core (git, privat repo) + bibler/*.bin
+                        ┌──────────────────────────────────────────────┐
+                        │ crates/bibel-core ─▶ crates/bibel-format     │
+                        └──────────────┬───────────────────────────────┘
+                                       ▼
+                        bibler/*.bin (kjv.bin i git, norske for hånd)
 ```
+
+`kerygma-core` bruker `bibel-core` bare gjennom `bibel_core::run` (i `bible.rs`), med de samme argumentene som kommandoen `bibel` i bible-repoet. Bible-repoet har fortsatt skriptene som henter tekstene, `bibel-gen` som lager `.bin`, og kommandoen; her er bare det appen trenger.
 
 ## Repoet
 
@@ -52,8 +58,8 @@ Kerygma er en Tauri 2-app. All logikk som kan testes uten vindu, ligger i Rust-c
 | `ui/src` | Grensesnittet | ca. 4 700 TS + 950 CSS |
 | `ui/public/slides.css` | Utseendet på presentasjonene (temaet «Kveld»), med fontene bygget inn | 150 |
 | `ui/fonts/`, `ui/public/lisenser/` | Fontene (woff2) som bygges inn i `slides.css`, og lisensene (OFL), som følger med appen | |
-| `bibler/` | `kjv.bin`, `nb88.bin`, `nb24.bin` (ikke i git) | |
-| `scripts/book-names.mjs` | Lager `book_names.rs` fra `scripts/book-names.json`, og henter boknavn og testreferanser på nytt fra `../bible` (`--fra-bible`) | |
+| `crates/bibel-core`, `crates/bibel-format` | Fra bible-repoet: oppslag, søk, formatering og argumentene (`run`), og binærformatet. Uten espanso, generator og kommando. | ca. 3 100 |
+| `bibler/` | Oversettelsene. `nb30.bin` (Bibelen 1930, standard) og `kjv.bin` er i git; andre som legges der, blir med ved bygging, men er stoppet av `.gitignore`. Se `bibler/README.md`. | |
 | `scripts/embed-fonts.mjs` | Bygger fontene i `ui/fonts/` inn i `slides.css` (`npm run fonts` i `ui/`) | |
 | `.github/workflows/ci.yml` | Tester og sjekker på macOS og Windows | |
 | `plans/` | Planer for funksjoner som ikke er bygget (`oversette-sitater.md`) | |
@@ -223,16 +229,16 @@ Det meste lages nå fra Rust i `ui/src/bindings.ts`, og `tsc` gir feil når en k
 
 ## Testene
 
-- 93 tester i Rust: 91 i `kerygma-core` og 2 i `src-tauri`. Testene i `tests/` sammenligner hele utdata tegn for tegn; de er fasiten for hvordan manus blir presentasjoner, og endres med vilje når oppførselen skal endres. Referansene i `fixtures/bibel-referanser.txt` lages fra `../bible`. Flytene i `workspace.rs` testes med midlertidige mapper. Bibeltestene hoppes over uten `bibler/*.bin`.
+- Tester i Rust: i `kerygma-core`, `src-tauri`, `bibel-core` og `bibel-format`. Norsk tekst i testene er fra Bibelen 1930, og testene laster bare nb30 og KJV (`common::bibel()`), så de gir samme svar lokalt og i CI uansett hva annet som ligger i `bibler/`. Testene i `tests/` sammenligner hele utdata tegn for tegn; de er fasiten for hvordan manus blir presentasjoner, og endres med vilje når oppførselen skal endres. Referansetestene lager alle formene `bibel` skriver for oversettelsene i `bibler/` (`common::generated`), og sjekker at de gjenkjennes. Flytene i `workspace.rs` testes med midlertidige mapper. `bare_kjv_med_standardinnstillingene` sjekker at appen virker uten nb30.
 - 29 tester av grensesnittet med Vitest og happy-dom (`ui/test/`): formatering, `sanitize.ts`, `parseSlide`, hurtigtastene, markøren og `OpenDocument` (autolagring og endringer utenfra, med falsk `api`).
 - Ikke testet automatisk: talervisningen i `presenter.ts` (to vinduer), PDF-eksporten (WebKit) og selve vinduet. Disse testes for hånd.
-- CI (`.github/workflows/ci.yml`): `cargo test`, `cargo clippy -D warnings` og bygging av grensesnittet på macOS og Windows, og `tsc` og Vitest. Krever hemmeligheten `BIBEL_DEPLOY_KEY`.
+- CI (`.github/workflows/ci.yml`): `cargo test`, `cargo clippy -D warnings` og bygging av grensesnittet på macOS og Windows, og `tsc` og Vitest. Trenger ingen hemmeligheter.
 
 ## Avhengigheter og bygging
 
-- `bibel-core` hentes fra et privat git-repo over ssh (`rev = "9012cdd"`, `.cargo/config.toml` bruker git fra kommandolinja). Den som bygger, må ha tilgang.
-- `bibler/*.bin` kopieres for hånd fra `../bible/assets` og pakkes som ressurser.
-- `book_names.rs` lages fra `scripts/book-names.json` i dette repoet. Boknavnene og testreferansene kan hentes på nytt fra `../bible` med `node scripts/book-names.mjs --fra-bible` (krever `cargo build --release` der). Ellers trengs ikke `../bible` utenom `bibel-core` (git) og `*.bin`.
+- Ingen avhengigheter til andre repoer ved bygging. `bibler/*.bin` pakkes med appen som ressurser (`tauri.conf.json`), og leses fra `bibler/` under utvikling.
+- Repoet er offentlig, så bare oversettelser i det fri er i git: Bibelen 1930 (`nb30`, standard) og KJV. Andre oversettelser lages i bible-repoet og legges i `bibler/`; alle som ligger der ved bygging, blir med i appen, i boknavnene, i Word-importen og i oppslag på tvers av oversettelser. Oversettelser som ikke er installert, hoppes over (`Bibel::configured`), og meldingen om det vises bare når brukeren lagrer innstillingene.
+- `book_names.rs`: boknavnene fra `bibler/*.bin` lages av `crates/kerygma-core/build.rs`; vanlige norske boknavn og forkortelser som ingen oversettelse bruker («1. Mosebok», «Åp»), står i `NORWEGIAN_NAMES`.
 - `specta`, `specta-typescript` og `tauri-specta` er i beta og låst med `=` i `src-tauri/Cargo.toml` og `crates/kerygma-core/Cargo.toml`. Oppgrader dem samtidig.
 - Windows-pakken er ikke bygget, og PDF-eksporten virker bare på macOS.
 
@@ -348,10 +354,12 @@ Gjennomført 2026-10-11. Punktene over beskriver situasjonen før endringene.
 | 3. `main.ts` er limet | **Delvis.** Dokumentet som er åpent (`document.ts`) og kommandoene (`commands.ts`) er skilt ut og testet. Presentasjonsflytene (lag, vis, eksporter) ligger fortsatt i `main.ts` og kan skilles ut på samme måte. |
 | 4. Låser | **Gjort.** Biblene er `Arc<Bibel>`, og kommandoene kopierer `Workspace` og `Arc` og slipper låsen før de jobber. Nye innstillinger gir en ny `Bibel` som byttes inn. |
 | 5. PDF-eksport | **Gjort for tilstanden:** hver eksport har en id, og sidene glemmes hvis noe går galt (`pdf_cancel`). **Ikke gjort:** PDF på Windows (WebView2 `PrintToPdf`). |
-| 6. Tester og CI | **Gjort.** Vitest med happy-dom for de rene delene, og CI på macOS og Windows. Hemmeligheten `BIBEL_DEPLOY_KEY` må legges inn i GitHub før CI kan hente `bibel-core`. |
+| 6. Tester og CI | **Gjort.** Vitest med happy-dom for de rene delene, og CI på macOS og Windows. Etter at `bibel-core` ble flyttet inn, trengs ingen deploy-nøkkel. Oversettelsene testene bruker (nb30 og KJV), er i git. |
 | 7. To måter å lese markdown | **Gjort:** testen `alle_slides_har_merkene_sine_i_html_en` går gjennom hele kjeden. |
-| 8. Bindingen til pluginen | **Gjort.** Appen har ingen avhengighet til `../obsidian-slide-creator`. Testene i `crates/kerygma-core/tests/` er fasiten. Det som fortsatt bare fantes i pluginen, er flyttet hit: fontene og lisensene (`ui/fonts/`, `ui/public/lisenser/`) med `scripts/embed-fonts.mjs`, generatoren for boknavn og testreferanser (nå i `scripts/book-names.mjs --fra-bible`, rett fra `../bible`), planen for sitatoversettelse (`plans/oversette-sitater.md`) og beskrivelsen av Word-importen (`docs/word-import.md`). Det ubrukte feltet `openCopy` er fjernet, og standardverdiene til innstillingene kommer fra Rust (`DEFAULT_SETTINGS`). |
+| 8. Bindingen til pluginen | **Gjort.** Appen har ingen avhengighet til `../obsidian-slide-creator`. Testene i `crates/kerygma-core/tests/` er fasiten. Det som fortsatt bare fantes i pluginen, er flyttet hit: fontene og lisensene (`ui/fonts/`, `ui/public/lisenser/`) med `scripts/embed-fonts.mjs`, boknavnene (nå laget ved bygging fra `bibler/*.bin`), planen for sitatoversettelse (`plans/oversette-sitater.md`) og beskrivelsen av Word-importen (`docs/word-import.md`). Det ubrukte feltet `openCopy` er fjernet, og standardverdiene til innstillingene kommer fra Rust (`DEFAULT_SETTINGS`). |
 | 9. Mindre ting | **Gjort:** CSP, atomisk lagring (manus, innstillinger, `app.json`, eksport), og den gamle porteringsplanen er erstattet av dette dokumentet (teknologivalgene og videre arbeid står nederst). **Ikke gjort (vurderinger, ikke feil):** søkeindeks, feiltyper som `enum`, og å samle `localStorage` i `app.json`. |
+
+Etterpå er det appen trenger fra bible-repoet (`bibel-format` og `bibel-core`, uten espanso) flyttet inn i `crates/`, så Kerygma ikke har avhengigheter til andre repoer. Skriptene, generatoren og kommandoen `bibel` er igjen i bible-repoet. Repoet er offentlig: bare Bibelen 1930 og KJV, som er i det fri, er i git. Testene og dokumentasjonen bruker bare dem, og andre oversettelser som legges i `bibler/`, blir med automatisk ved bygging.
 
 CSP-en og resten av grensesnittet er sjekket med `tsc`, Vitest og bygging, men ikke prøvd for hånd i appen. Prøv særlig lesevisning med bilder, presentasjon med temaer, talervisning og alle tre eksportene.
 
@@ -365,7 +373,7 @@ CSP-en og resten av grensesnittet er sjekket med `tsc`, Vitest og bygging, men i
 | Editor | **CodeMirror 6** med `@codemirror/lang-markdown` | Markdown-farger, angre, søk i fila og markørposisjon (som verseinnsetting trenger) er innebygd. |
 | Markdown → HTML | **comrak** (Rust) | CommonMark + GFM, gir et AST som presentasjonen kan deles på, og har wikilenker. |
 | Presentasjon | **reveal.js 5** (npm, bundlet lokalt) | Moden, virker uten nett, og kan bygges inn i én HTML-fil ved eksport. |
-| Bibel | `bibel-core` fra `bible`-repoet som crate | Oppslag, søk og oversettelser uten egen kode; samme svar som kjørbaren `bibel`. |
+| Bibel | `bibel-core` og `bibel-format` (fra bible-repoet) | Oppslag, søk og oversettelser i et kompakt binærformat uten allokering; samme svar som kommandoen `bibel`. |
 | Regex | **fancy-regex** der det trengs lookbehind/lookahead, ellers `regex` | Referansene trenger `(?<!…)`, `(?=…)` og `\p{L}`. `regex`-craten støtter ikke lookaround. |
 | Word | `zip` + `quick-xml` | Leser `word/document.xml` direkte. |
 | PDF | `createPDF` i WKWebView + `lopdf` | Teksten blir tekst med de samme skriftene som på skjermen. |

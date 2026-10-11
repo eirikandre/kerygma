@@ -15,7 +15,7 @@ Manusene er vanlige markdown-filer i en mappe. Den samme mappa kan også åpnes 
 
 **Windows:** kjør `Kerygma.msi` og følg veiviseren.
 
-Bibeloversettelsene (Norsk Bibel 88/07, Bibel 2024 og King James) følger med programmet.
+Bibelen 1930 (norsk) og King James Version (engelsk) følger med programmet. Har du en versjon med flere oversettelser, kan de velges i innstillingene.
 
 ## 2. Åpne en mappe
 
@@ -46,7 +46,7 @@ Presentasjonen henter ut tre ting fra manuset:
 - **Bibelvers**: teksten etterfulgt av referansen i parentes. Hvert vers blir en egen slide.
 
   ```
-  > Herren er min hyrde, jeg mangler ingen ting. (Salmenes bok 23:1)
+  > Herren er min hyrde, mig fattes intet. (Salmenes bok 23:1)
   ```
 
   Vanlige forkortelser virker også, som `(Sal 23,1)`, `(Joh 3,16)` og `(1. Kor 13,4-7)`.
@@ -147,7 +147,7 @@ Til slutt viser et vindu hvor mange bibelvers som ble funnet i hvert manus. Tryk
 
 ```
 > [!warning|sjekk] Funnet med søk i Bibelen. Manuset har ingen referanse.
-> Du skal kalles med et nytt navn, som Herrens munn skal nevne. (Profeten Jesaja 62:2)
+> Du skal kalles med et nytt navn, som Herrens munn skal nevne. (Jesajas bok 62:2)
 ```
 
 1. Finn boksene ved å søke etter `[!warning|sjekk]` i manuset med **Cmd/Ctrl + F**.
@@ -169,7 +169,7 @@ Under **Presentasjoner og bibel** er innstillingene for mappa som er åpen:
 | Postfix for presentasjon | det som står bak navnet på presentasjonen. Standard: ` - presentasjon` |
 | Maks tegn per slide | lengre vers deles over flere slides. Standard: 350 |
 | Legg til oversettelse | slå av hvis du ikke vil ha engelsk ved siden av versene |
-| Oversettelse | oversettelsen ved siden av: `kjv`, `nb88` eller `nb24` |
+| Oversettelse | oversettelsen ved siden av. Standard: `kjv` |
 | Standardoversettelse | oversettelsen du får når du setter inn vers uten prefiks |
 | Snarveier | korte navn som `ne` for flere oversettelser |
 | Mappe for importerte Word-manus | tom: mappa til manuset som er åpent. «Importer Word-manus hit» i treet går foran |

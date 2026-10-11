@@ -15,9 +15,9 @@ Bibelsitatene blir `> tekst (referanse)`. Da blir de slides, og «Lag presentasj
   kerygma importer manus.docx --uten-søk   # ikke let etter vers i avsnitt uten referanse
   ```
 
-  Krever `bibler/*.bin` (eller `--bibler <mappe>` / `KERYGMA_BIBLER`). For hver fil skrives antall sitater, hvor mange som har advarsel, og referansene som ikke ble til sitater.
+  Bruker oversettelsene i `bibler/` (eller `--bibler <mappe>` / `KERYGMA_BIBLER`). For hver fil skrives antall sitater, hvor mange som har advarsel, og referansene som ikke ble til sitater.
 
-Teksten sammenlignes med oversettelsene i `word::IMPORT_TRANSLATIONS` (`nb88`, `nb24`). Den første gir navnet i referansen.
+Teksten sammenlignes med oversettelsene fra `word::import_translations`: standardoversettelsen (Bibelen 1930, `nb30`) først, siden den gir navnet i referansen, og så de andre oversettelsene appen er bygget med, unntatt den som legges ved siden av versene (`kjv`).
 
 ## Hva som gjøres
 
@@ -32,15 +32,15 @@ Gamle manus skriver referansen på mange måter, og sjelden i parentes etter ver
 
 | I manuset | Blir |
 |---|---|
-| `Jer 7,4` på egen linje, verset på neste | `> Fest ikke lit ... (Profeten Jeremia 7:4)` |
-| `1 Kor 10,13 Dere har ikke møtt ...` | `> Dere har ikke møtt ... (1. Korinterbrev 10:13)` |
+| `Jer 7,4` på egen linje, verset på neste | `> Sett ikke eders lit ... (Jeremias bok 7:4)` |
+| `1 Kor 10,13 Eder har ingen fristelse møtt ...` | `> Eder har ingen fristelse møtt ... (Første korinterbrev 10:13)` |
 | `I Hos 4:6 sier Herren,` og verset under | teksten beholdes, så kommer sitatet |
 | `V1`, `v.8`, `vers 7` | boka og kapitlet fra forrige referanse, `Daniel kap 1` eller overskriften |
 | `1:4 unge gutter ...` | boka fra forrige referanse eller overskriften |
 | `... rettferdiggjørelse” i Rom 4:25` | sitatet foran referansen skilles ut |
 | et avsnitt som er et helt vers, uten referanse | finnes med søk i Bibelen |
 
-- Referansen blir slik `bibel` skriver den («Profeten Daniel 1:9»), og viser versene som faktisk er sitert. `reference.rs` kjenner alle disse navnene, så presentasjonen kan slå dem opp på engelsk.
+- Referansen blir slik `bibel` skriver den («Daniels bok 1:9»), og viser versene som faktisk er sitert. `reference.rs` kjenner alle disse navnene, så presentasjonen kan slå dem opp på engelsk.
 - Står referansen alene foran sitatet, flyttes den inn i sitatet. Ellers blir den stående i teksten også.
 - `(N78)` og `(N88)` etter et sitat fjernes, siden de ikke er en oversettelse `bibel` kjenner.
 - Referanser der manuset ikke siterer verset, som `Matt 13:44-46` midt i en setning, blir stående som tekst og kommer i rapporten (`ConvertResult::unmatched`).
@@ -51,7 +51,7 @@ Sitatene som er mest usikre, får en gul callout som sier hvorfor (`FoundQuote::
 
 ```
 > [!warning|sjekk] Få ord stemmer med bibelteksten. Sjekk at dette er Dan 1:9.
-> Gud gjorde det da så at den øverste hoffmannen fikk velvilje og godhet for Daniel. (Profeten Daniel 1:9)
+> Gud gjorde at den øverste hoffmann fikk velvilje og godhet for Daniel. (Daniels bok 1:9)
 ```
 
 | Advarsel | Når |
@@ -72,4 +72,4 @@ Sitatene som er mest usikre, får en gul callout som sier hvorfor (`FoundQuote::
 | `crates/kerygma-core/src/word/align.rs` | sammenligner manustekst med bibeltekst |
 | `crates/kerygma-core/src/word/bible_text.rs` | traitet `BibleText`, og `BibelText` med oppslag og søk i `bibel` |
 | `crates/kerygma-core/src/word/mod.rs` | `import_docx` og navnene på manusene |
-| `crates/kerygma-core/tests/convert.rs` | testene, med en liten falsk bibel, så de ikke trenger `bibler/` |
+| `crates/kerygma-core/tests/convert.rs` | testene, med en liten falsk bibel, så de ikke trenger oversettelsene |
