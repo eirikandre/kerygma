@@ -189,7 +189,7 @@ impl Vault {
         if let Some(parent) = full.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("Kunne ikke lage mappa til «{path}»: {e}"))?;
         }
-        std::fs::write(full, content).map_err(|e| format!("Kunne ikke lagre «{path}»: {e}"))
+        write_atomic(&full, content.as_bytes()).map_err(|e| format!("Kunne ikke lagre «{path}»: {e}"))
     }
 
     pub fn exists(&self, path: &str) -> bool {
@@ -371,6 +371,19 @@ impl Vault {
         let index = OnceLock::new();
         move |target: &str, wiki: bool| self.find_file(target, note, wiki, &index).map(|path| asset_url(&path))
     }
+}
+
+/// Skriver til en skjult fil i samme mappe og gir den så navnet til `path`, så
+/// fila aldri er halvveis skrevet hvis appen eller maskinen stopper midt i.
+/// Den skjulte fila vises ikke i treet og gir ikke `vault-changed`.
+pub fn write_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let temp = path.with_file_name(format!(".{name}.{}.tmp", std::process::id()));
+    let result = std::fs::write(&temp, data).and_then(|()| std::fs::rename(&temp, path));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
+    }
+    result
 }
 
 /// Et filnavn uten mappeskille og uten å være skjult.
