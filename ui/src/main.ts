@@ -4,7 +4,9 @@ import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialo
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { api, basename, errorMessage, events, folderOf, presentationSource, type Tree } from "./api.ts";
 import { loadAppearance, onAppearanceChange, zoomWithWheel } from "./appearance.ts";
+import { connectCommands } from "./commands.ts";
 import { confirmDelete, confirmOverwrite, notice } from "./dialogs.ts";
+import { OpenDocument } from "./document.ts";
 import { Editor } from "./editor.ts";
 import type { ExportKind } from "./export.ts";
 import {
@@ -29,8 +31,6 @@ import { TreeView } from "./tree.ts";
 import { openVerseModal } from "./verseModal.ts";
 import "./styles.css";
 
-const SAVE_DELAY_MS = 1000;
-
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 // Knappene i index.html har bare ikonnavn og hover-tekst; ikonene settes inn her.
@@ -42,15 +42,9 @@ initTooltips();
 const state = {
   vaultPath: undefined as string | undefined,
   tree: undefined as Tree | undefined,
-  /** Fila som er åpen, relativt til vault-roten. */
-  path: undefined as string | undefined,
-  /** Det som sist ble lest fra eller skrevet til disk. */
-  saved: "",
-  dirty: false,
   mode: "edit" as Mode,
   /** Visningen sist valgt i et manus; presentasjoner åpnes alltid i lesevisning. */
   manuscriptMode: loadManuscriptMode(),
-  saveTimer: undefined as number | undefined,
   /** Med to skjermer kan talervisningen startes fra manuset også. */
   screens: 1,
 };
@@ -88,9 +82,7 @@ try {
 const editor = new Editor(
   $("editor"),
   () => {
-    state.dirty = true;
-    window.clearTimeout(state.saveTimer);
-    state.saveTimer = window.setTimeout(() => void save(), SAVE_DELAY_MS);
+    doc.changed();
     updatePresentationUi();
   },
   () => {
@@ -98,6 +90,9 @@ const editor = new Editor(
     $<HTMLSelectElement>("heading").value = String(Math.min(headingLevel(editor.view.state), 3));
   },
 );
+
+// Fila som er åpen, med autolagring og endringer utenfra.
+const doc = new OpenDocument(editor, { reloaded: () => showMode(), closed: () => showClosed() });
 
 // Skrift og størrelse fra innstillingene; Cmd/Ctrl + rullehjul over teksten endrer størrelsen.
 onAppearanceChange(() => editor.view.requestMeasure());
@@ -145,7 +140,7 @@ async function run(action: () => Promise<void>) {
 async function openVault(path?: string) {
   const chosen = path ?? (await openDialog({ directory: true, title: "Åpne mappe med manus" }));
   if (typeof chosen !== "string") return;
-  await save();
+  await doc.save();
   const result = await api.openVault(chosen);
   state.vaultPath = chosen;
   tree.setVault(chosen);
@@ -162,7 +157,7 @@ async function openVault(path?: string) {
 function showTree(result: Tree) {
   state.tree = result;
   tree.render(result);
-  tree.setActive(state.path);
+  tree.setActive(doc.path);
   updatePresentationUi();
 }
 
@@ -178,12 +173,12 @@ function inTree(path: string, node: Tree | undefined = state.tree): boolean {
  * om at endringer blir overskrevet.
  */
 function updatePresentationUi() {
-  const source = state.path ? presentationSource(editor.getValue()) : undefined;
-  const manuscript = source && state.path ? `${folderOf(state.path) ? `${folderOf(state.path)}/` : ""}${source}` : undefined;
+  const source = doc.path ? presentationSource(doc.content) : undefined;
+  const manuscript = source && doc.path ? `${folderOf(doc.path) ? `${folderOf(doc.path)}/` : ""}${source}` : undefined;
   const create = $<HTMLButtonElement>("create-presentation");
   // I manuset lager knappen presentasjonen; i presentasjonen kommer ▷ etter den.
   // Med to skjermer starter ▷ talervisningen, som lager slidene fra manuset, så da vises den i manuset også.
-  $("show-presentation").hidden = !source && !(state.path && state.screens > 1);
+  $("show-presentation").hidden = !source && !(doc.path && state.screens > 1);
   setIcon(
     $("show-presentation"),
     "play",
@@ -224,34 +219,14 @@ async function refreshTree() {
 
 // --- Manus ---------------------------------------------------------------
 
-async function save() {
-  window.clearTimeout(state.saveTimer);
-  if (!state.path || !state.dirty) return;
-  const path = state.path;
-  const content = editor.getValue();
-  state.dirty = false;
-  try {
-    await api.writeNote(path, content);
-    if (state.path === path) state.saved = content;
-  } catch (error) {
-    if (state.path === path) state.dirty = true;
-    notice(errorMessage(error), { error: true });
-  }
-}
-
 /**
  * Åpner fila. Presentasjoner åpnes i lesevisning, manus i visningen
  * som sist ble valgt i et manus, med mindre `mode` er oppgitt.
  */
 async function openNote(path: string, mode?: Mode) {
-  if (path === state.path) return;
-  await save();
-  const content = await api.readNote(path);
-  state.path = path;
-  state.saved = content;
-  state.dirty = false;
+  if (path === doc.path) return;
+  const content = await doc.open(path);
   state.mode = mode ?? (presentationSource(content) ? "preview" : state.manuscriptMode);
-  editor.load(content);
   $("title").textContent = basename(path);
   $("toolbar").hidden = false;
   $("empty").hidden = true;
@@ -264,7 +239,7 @@ async function openNote(path: string, mode?: Mode) {
 /** Åpner fila fra et søketreff, i redigering, og går til linja med treffet. */
 async function openNoteAt(path: string, line?: number) {
   await openNote(path);
-  if (line === undefined || state.path !== path) return;
+  if (line === undefined || doc.path !== path) return;
   if (state.mode === "preview") {
     state.mode = "edit";
     await showMode();
@@ -273,10 +248,12 @@ async function openNoteAt(path: string, line?: number) {
 }
 
 function closeNote() {
-  state.path = undefined;
-  state.saved = "";
-  state.dirty = false;
-  editor.load("");
+  doc.close();
+  showClosed();
+}
+
+/** Viser at ingen fil er åpen. */
+function showClosed() {
   $("toolbar").hidden = true;
   $("editor").hidden = true;
   $("preview").hidden = true;
@@ -292,16 +269,16 @@ async function showMode() {
   $("format").hidden = preview;
   updatePresentationUi();
   setIcon($("toggle-preview"), preview ? "pencil" : "eye", preview ? "Rediger (Cmd/Ctrl + E)" : "Lesevisning (Cmd/Ctrl + E)");
-  if (preview && state.path) {
-    setSafeHtml($("preview"), await api.renderNote(state.path, editor.getValue()));
+  if (preview && doc.path) {
+    setSafeHtml($("preview"), await api.renderNote(doc.path, doc.content));
   }
 }
 
 async function togglePreview() {
-  if (!state.path) return;
+  if (!doc.path) return;
   state.mode = state.mode === "edit" ? "preview" : "edit";
   // Valget huskes for manus; i en presentasjon gjelder det bare der og da.
-  if (!presentationSource(editor.getValue())) {
+  if (!presentationSource(doc.content)) {
     state.manuscriptMode = state.mode;
     try {
       localStorage.setItem(MODE_KEY, state.mode);
@@ -332,8 +309,8 @@ $("preview").addEventListener("click", (event) => {
     return;
   }
   const target = link.dataset.href ?? decodeLink(href);
-  if (target && state.path) {
-    const from = state.path;
+  if (target && doc.path) {
+    const from = doc.path;
     void run(async () => {
       const path = await api.resolveLink(target, from);
       if (path?.endsWith(".md")) await openNote(path);
@@ -363,7 +340,7 @@ async function newFolder(parent: string) {
   const path = await api.createFolder(parent, "");
   setSidebarHidden(false); // Navnet skrives i treet.
   await refreshTree();
-  tree.setActive(state.path);
+  tree.setActive(doc.path);
   tree.startRename(path);
 }
 
@@ -378,21 +355,14 @@ async function movePath(path: string, folder: string) {
 /** Fila eller mappa har fått ny sti: følg etter med fila som er åpen. */
 async function moved(path: string, newPath: string) {
   tree.moved(path, newPath);
-  if (state.path === path) {
-    state.path = newPath;
-    $("title").textContent = basename(newPath);
-  } else if (state.path?.startsWith(`${path}/`)) {
-    state.path = newPath + state.path.slice(path.length);
-  }
+  doc.moved(path, newPath);
+  if (doc.path === newPath) $("title").textContent = basename(newPath);
   await refreshTree();
 }
 
 async function deletePath(path: string, name: string) {
   if (!(await confirmDelete(name))) return;
-  if (state.path === path || state.path?.startsWith(`${path}/`)) {
-    window.clearTimeout(state.saveTimer);
-    closeNote();
-  }
+  if (doc.path === path || doc.path?.startsWith(`${path}/`)) closeNote();
   await api.delete(path);
   await refreshTree();
 }
@@ -400,8 +370,8 @@ async function deletePath(path: string, name: string) {
 /** Klikk på tittelen for å gi fila nytt navn. */
 function startTitleRename() {
   const title = $("title");
-  if (!state.path || title.querySelector("input")) return;
-  const path = state.path;
+  if (!doc.path || title.querySelector("input")) return;
+  const path = doc.path;
   const input = document.createElement("input");
   input.className = "title-input";
   input.value = basename(path);
@@ -413,7 +383,7 @@ function startTitleRename() {
     if (done) return;
     done = true;
     const value = input.value.trim();
-    title.textContent = basename(state.path ?? path);
+    title.textContent = basename(doc.path ?? path);
     if (saveName && value && value !== basename(path)) await run(() => renamePath(path, value));
     editor.focus();
   };
@@ -428,13 +398,13 @@ function startTitleRename() {
 // --- Presentasjon ----------------------------------------------------------
 
 /** «Lag presentasjon», fra fila som er åpen eller fra høyreklikk i treet. */
-async function createPresentation(path = state.path) {
+async function createPresentation(path = doc.path) {
   if (!path || !path.endsWith(".md")) {
     notice("Åpne et manus først.");
     return;
   }
   // Ulagrede endringer skal med, så innholdet tas fra editoren når fila er åpen.
-  const content = path === state.path ? editor.getValue() : null;
+  const content = path === doc.path ? doc.content : null;
   let result = await api.createPresentation(path, content, false);
   if (result.kind === "exists") {
     if (!(await confirmOverwrite(result.path))) return;
@@ -453,12 +423,9 @@ async function createPresentation(path = state.path) {
       for (const warning of result.warnings) notice(warning, { error: true });
       notice(`Presentasjon laget: ${basename(result.path)}`);
       await refreshTree();
-      if (state.path === result.path) {
+      if (doc.path === result.path) {
         // Presentasjonen er åpen, men laget på nytt: vis det nye innholdet.
-        const fresh = await api.readNote(result.path);
-        state.saved = fresh;
-        state.dirty = false;
-        editor.replace(fresh);
+        await doc.reload();
         await showMode();
       } else {
         // Presentasjoner vises ikke i treet, så den åpnes alltid; der startes den med ▷.
@@ -474,16 +441,16 @@ async function createPresentation(path = state.path) {
  * uansett hvor mange skjermer det er.
  */
 async function showPresentation(inWindow = false) {
-  if (!state.path) {
+  if (!doc.path) {
     notice(inWindow ? "Åpne et manus eller en presentasjon først." : "Åpne en presentasjon først.");
     return;
   }
-  const isPresentation = !!presentationSource(editor.getValue());
+  const isPresentation = !!presentationSource(doc.content);
   const target = inWindow ? "window" : await otherMonitor().catch(() => undefined);
   if (target) {
-    await save();
+    await doc.save();
     try {
-      await startPresenter(state.path, isPresentation ? null : editor.getValue(), target);
+      await startPresenter(doc.path, isPresentation ? null : doc.content, target);
       return;
     } catch (error) {
       // Uten manuset (slettet eller flyttet) vises presentasjonen som før på to skjermer.
@@ -496,7 +463,7 @@ async function showPresentation(inWindow = false) {
     notice("Lag presentasjonen først (Cmd/Ctrl + Shift + M). Den åpnes, og der starter du den med ▷.");
     return;
   }
-  const slides = await api.slides(state.path, editor.getValue());
+  const slides = await api.slides(doc.path, doc.content);
   if (slides.length === 0) {
     notice("Det er ingenting å vise.");
     return;
@@ -516,19 +483,19 @@ async function updateScreens() {
  * Eksporterer presentasjonen til PDF, PowerPoint eller HTML: presentasjonen selv, eller den som
  * er laget fra manuset. Fila lagres der brukeren velger, foreslått ved siden av presentasjonen.
  */
-async function exportPresentation(kind: ExportKind, path = state.path) {
+async function exportPresentation(kind: ExportKind, path = doc.path) {
   if (!path || !state.vaultPath) {
     notice("Åpne et manus eller en presentasjon først.");
     return;
   }
-  await save();
-  const content = path === state.path ? editor.getValue() : await api.readNote(path);
+  await doc.save();
+  const content = path === doc.path ? doc.content : await api.readNote(path);
   const presentation = await api.presentationPath(path, content);
   if (!presentation) {
     notice("Lag presentasjonen først (Cmd/Ctrl + Shift + M), så eksporteres den.");
     return;
   }
-  const slides = await api.slides(presentation, presentation === state.path ? editor.getValue() : null);
+  const slides = await api.slides(presentation, presentation === doc.path ? doc.content : null);
   if (slides.length === 0) {
     notice("Det er ingenting å eksportere.");
     return;
@@ -551,7 +518,7 @@ async function exportPresentation(kind: ExportKind, path = state.path) {
 }
 
 function insertVerse() {
-  if (!state.path) {
+  if (!doc.path) {
     notice("Åpne et manus og sett markøren der verset skal inn.");
     return;
   }
@@ -586,7 +553,7 @@ const commands: Record<string, () => void | Promise<void>> = {
   "new-note": () => newNote(),
   "new-folder": () => newFolder(tree.folder),
   "toggle-sidebar": () => setSidebarHidden(!$("app").classList.contains("sidebar-hidden")),
-  "import-word": () => importWordTo(state.path ? folderOf(state.path) : "", false),
+  "import-word": () => importWordTo(doc.path ? folderOf(doc.path) : "", false),
   settings: () => openSettings(),
   "toggle-preview": () => togglePreview(),
   "create-presentation": () => createPresentation(),
@@ -604,47 +571,12 @@ const commands: Record<string, () => void | Promise<void>> = {
   },
 };
 
-// På macOS kan både menyen og grensesnittet få samme hurtigtast; det andre kallet ignoreres.
-let lastCommand = { id: "", at: 0 };
-function command(id: string) {
-  const now = Date.now();
-  if (lastCommand.id === id && now - lastCommand.at < 300) return;
-  lastCommand = { id, at: now };
-  // Menyen sender kommandoer også når et modalvindu er åpent; de skal ikke åpne et nytt oppå.
-  if (document.querySelector(".presentation-overlay, .modal-backdrop") || presenterRunning()) return;
-  const action = commands[id];
-  if (action) void run(async () => action());
-}
-
-const SHORTCUTS: Array<{ key: string; shift: boolean; id: string }> = [
-  { key: "n", shift: false, id: "new-note" },
-  { key: "e", shift: false, id: "toggle-preview" },
-  { key: "m", shift: true, id: "create-presentation" },
-  { key: "p", shift: true, id: "show-presentation" },
-  { key: "b", shift: true, id: "insert-verse" },
-  { key: ",", shift: false, id: "settings" },
-  { key: "f", shift: true, id: "search" },
-  { key: "t", shift: true, id: "toggle-sidebar" },
-  // Cmd/Ctrl + Alt + Shift + P (talervisning i eget vindu) håndteres for seg, se under.
-];
-
-document.addEventListener("keydown", (event) => {
-  if (!(event.metaKey || event.ctrlKey)) return;
-  if (document.querySelector(".modal-backdrop")) return;
-  // Cmd/Ctrl + Alt + Shift + P: Alt endrer tegnet (∏ på Mac), så tasten leses fra `code`.
-  if (event.altKey && event.shiftKey && event.code === "KeyP") {
-    event.preventDefault();
-    event.stopPropagation();
-    command("presenter-window");
-    return;
-  }
-  if (event.altKey) return;
-  const shortcut = SHORTCUTS.find((s) => s.key === event.key.toLowerCase() && s.shift === event.shiftKey);
-  if (!shortcut) return;
-  event.preventDefault();
-  event.stopPropagation();
-  command(shortcut.id);
-});
+// Menyen sender kommandoer også når et modalvindu er åpent; de skal ikke åpne et nytt oppå.
+const command = connectCommands(
+  commands,
+  () => !!document.querySelector(".presentation-overlay, .modal-backdrop") || presenterRunning(),
+  run,
+);
 
 for (const id of ["toggle-preview", "insert-verse", "create-presentation"]) {
   $(id).addEventListener("click", () => command(id));
@@ -676,36 +608,12 @@ $("show-sidebar").addEventListener("click", () => command("toggle-sidebar"));
 $("empty-open").addEventListener("click", () => command("open-vault"));
 $("title").addEventListener("click", () => startTitleRename());
 
-void events.menu.listen((event) => command(event.payload));
-
 /** Filer endret utenfra (Obsidian, Finder, Word-import). */
 void events.vaultChanged.listen((event) => {
   search.refresh();
   void run(async () => {
     await refreshTree();
-    const path = state.path;
-    if (!path || !event.payload.includes(path)) return;
-    if (state.dirty) {
-      // Ulagrede endringer går foran og lagres om litt, men da forsvinner endringen utenfra.
-      const content = await api.readNote(path).catch(() => undefined);
-      if (content !== undefined && state.path === path && state.dirty && content !== state.saved) {
-        state.saved = content;
-        notice(`«${basename(path)}» ble endret utenfra mens du skrev. Din versjon lagres over den.`, { error: true });
-      }
-      return;
-    }
-    let content: string;
-    try {
-      content = await api.readNote(path);
-    } catch {
-      closeNote(); // Fila er slettet eller flyttet.
-      return;
-    }
-    if (state.path === path && !state.dirty && content !== state.saved && content !== editor.getValue()) {
-      state.saved = content;
-      editor.replace(content);
-      await showMode();
-    }
+    await doc.externalChange(event.payload);
   });
 });
 
@@ -718,10 +626,10 @@ void events.bibleWarning.listen((event) => notice(event.payload, { error: true }
 
 // Lagre før vinduet lukkes.
 void getCurrentWindow().onCloseRequested(async () => {
-  await save();
+  await doc.save();
   await stopPresenter();
 });
-window.addEventListener("blur", () => void save());
+window.addEventListener("blur", () => void doc.save());
 window.addEventListener("focus", () => void updateScreens());
 void updateScreens();
 
