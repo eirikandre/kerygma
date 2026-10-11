@@ -1,9 +1,9 @@
 //! Lager innholdet til en presentasjon av et manus.
 //!
-//! Skrevet etter `src/extract.ts` i obsidian-slide-creator, og gir de samme
-//! utdataene tegn for tegn. Lengder telles i UTF-16-enheter, som `length` i
-//! JavaScript, så delingen av lange vers blir lik. Indekser i strengene er
-//! byte-indekser, og regnes om til UTF-16 der de sammenlignes med lengder.
+//! Lengder telles i UTF-16-enheter (som `length` i JavaScript), slik slidene alltid
+//! har blitt delt; endres det, endres delingen av lange vers med tegn utenfor BMP.
+//! Indekser i strengene er byte-indekser, og regnes om til UTF-16 der de
+//! sammenlignes med lengder.
 //!
 //! Hver slide vet også hvor i manuset den kommer fra ([`extract_slides`]), så
 //! talervisningen kan markere det som vises.

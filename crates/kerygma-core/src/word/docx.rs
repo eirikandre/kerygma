@@ -1,5 +1,5 @@
 //! Leser avsnittene i en .docx-fil: tekst, fet og kursiv, stil og om
-//! avsnittet er et listepunkt. Skrevet etter `word-to-markdown/src/docx.ts`.
+//! avsnittet er et listepunkt.
 
 use std::io::{Cursor, Read};
 

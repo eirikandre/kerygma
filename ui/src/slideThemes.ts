@@ -1,6 +1,5 @@
-// Temaer og skrifter for presentasjonen. slides.css er kopiert uendret fra pluginen og
-// gir temaet «Kveld»; de andre temaene, og skriftene som velges i innstillingene, legges
-// oppå som variabler på `.reveal`. Obsidian ser bare slides.css, så der vises «Kveld».
+// Temaer og skrifter for presentasjonen. slides.css gir temaet «Kveld»; de andre temaene,
+// og skriftene som velges i innstillingene, legges oppå som variabler på `.reveal`.
 import { FONTS } from "./appearance.ts";
 
 export interface SlideTheme {

@@ -1,5 +1,5 @@
 //! Oppslag i Bibelen med `bibel`, så sitatene i manuset kan sammenlignes
-//! med bibelteksten. Skrevet etter `word-to-markdown/src/bibleText.ts`.
+//! med bibelteksten. Traitet `BibleText` lar testene bruke en falsk bibel.
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};

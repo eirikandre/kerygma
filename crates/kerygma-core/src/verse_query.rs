@@ -2,8 +2,6 @@
 //! espanso-oppsettet til bible: "1mos3:1", "ne:joh3:16" og "s=tro håp" (søk).
 //! Kolon foran og mellomrom rundt, som i ":1mos3:1 ", tåles. `suggest_verse`
 //! søker også uten «s=» når teksten ikke er en referanse.
-//!
-//! Skrevet etter `src/verseQuery.ts` og `src/verseModal.ts` i obsidian-slide-creator.
 
 use std::sync::LazyLock;
 

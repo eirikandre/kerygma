@@ -1,5 +1,6 @@
-//! Testene fra `test/extract.test.ts` i obsidian-slide-creator, med samme
-//! inn- og utdata. Testene for referanser ligger i `tests/reference.rs`.
+//! «Lag presentasjon» (`extract_slide_content`): hele utdataene sammenlignes tegn for
+//! tegn, også linjeskift og `---` mellom slides. Testene for referanser ligger i
+//! `tests/reference.rs`.
 
 use std::collections::HashMap;
 

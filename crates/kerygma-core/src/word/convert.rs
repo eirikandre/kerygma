@@ -6,8 +6,7 @@
 //! "V1", "1:4") og lete etter bibelteksten i avsnittene etter (eller før)
 //! referansen. Avsnitt uten referanse som er et helt bibelvers, finnes med søk.
 //!
-//! Skrevet etter `word-to-markdown/src/convert.ts`. Posisjoner i teksten er
-//! byte-indekser, og alltid på tegngrenser.
+//! Se `docs/word-import.md`. Posisjoner i teksten er byte-indekser, og alltid på tegngrenser.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;

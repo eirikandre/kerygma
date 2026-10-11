@@ -1,23 +1,13 @@
-// Innstillingene, med de samme navnene og beskrivelsene som SlideCreatorSettingTab i pluginen.
+// Innstillingene: for vaulten (`Settings`, i .kerygma/settings.json) og for appen (utseendet, i app.json).
 import { api, errorMessage, type Settings, type Theme } from "./api.ts";
+import { DEFAULT_SETTINGS } from "./bindings.ts";
 import { FONTS, MAX_SIZE, MIN_SIZE, THEMES, getAppearance, setAppearance } from "./appearance.ts";
 import { notice, openModal } from "./dialogs.ts";
 import { setIcon } from "./icons.ts";
 import { SLIDE_FONTS, SLIDE_THEMES, applySlideStyle, loadSlideFonts, slideTheme } from "./slideThemes.ts";
 
-const DEFAULTS: Settings = {
-  suffix: " - presentasjon",
-  openCopy: true,
-  maxChars: 350,
-  addTranslation: true,
-  translation: "kjv",
-  defaultTranslation: "nb88",
-  aliases: "n=nb88,e=kjv,ne=nb88+kjv",
-  importFolder: "",
-  slideTheme: "kveld",
-  headingFont: "",
-  quoteFont: "",
-};
+/** Standardverdiene, de samme som `Settings::default` i kerygma-core. */
+const DEFAULTS: Settings = { ...DEFAULT_SETTINGS };
 
 /** Felt `Settings::sanitized` trimmer, og felt som får standardverdien når de er tomme. */
 const TRIMMED = new Set<keyof Settings>(["translation", "defaultTranslation", "importFolder"]);

@@ -1,5 +1,4 @@
-//! Testene fra `test/verseQuery.test.ts` i obsidian-slide-creator, og
-//! forslagene fra `verseModal.ts`.
+//! Tolkingen av det som skrives i «Sett inn bibelvers», og sitatet som settes inn.
 
 mod common;
 

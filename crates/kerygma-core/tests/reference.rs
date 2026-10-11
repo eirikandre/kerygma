@@ -1,4 +1,4 @@
-//! Testene for referanser fra `test/extract.test.ts` i obsidian-slide-creator.
+//! Gjenkjenning av bibelreferanser, med fasiten fra bible-repoet (`fixtures/bibel-referanser.txt`).
 
 mod common;
 

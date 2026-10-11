@@ -1,5 +1,5 @@
 //! Import av gamle Word-manus (.docx) til markdown, med bibelsitatene som
-//! `> tekst (referanse)`. Skrevet etter `word-to-markdown/` i obsidian-slide-creator.
+//! `> tekst (referanse)`. Se `docs/word-import.md` for hvordan sitatene finnes.
 
 pub mod align;
 pub mod bible_text;

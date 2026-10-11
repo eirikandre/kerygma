@@ -1,11 +1,11 @@
 /*
- * Mal for presentasjoner i Obsidians innebygde Slides-plugin.
- * Kopieres til <vault>/.obsidian/snippets/ og slås på under
- * Innstillinger → Utseende → CSS-snippets.
+ * Utseendet på presentasjonene i Kerygma (temaet «Kveld»). Gjelder DOM-en reveal.js
+ * bygger i `.slides-container .reveal` (se ui/src/present.ts). De andre temaene og
+ * skriftene legges oppå som variabler (ui/src/slideThemes.ts).
  */
 
 /* Fontene (Lora og Montserrat) er bygget inn nederst i fila, så det trengs ikke nett.
-   Andre fonter: legg .woff2 i fonts/ og i scripts/embed-fonts.mjs, og kjør npm run fonts. */
+   Andre fonter: legg .woff2 i ui/fonts/ og i scripts/embed-fonts.mjs, og kjør npm run fonts i ui/. */
 
 .slides-container .reveal {
   /* Farger */
@@ -61,7 +61,7 @@
   margin-inline: auto;
 }
 
-/* Norsk og engelsk side om side (lages av Slide Creator fra `bibel ne:...`) */
+/* Norsk og engelsk side om side (lages av «Lag presentasjon», se extract.rs) */
 .bibel-parallell {
   display: grid;
   grid-auto-flow: column;
@@ -128,7 +128,7 @@
 }
 
 /* === Fonter: generert av scripts/embed-fonts.mjs, ikke rediger === */
-/* Lisens: fonts/OFL-*.txt (SIL Open Font License 1.1) */
+/* Lisens: ui/public/lisenser/OFL-*.txt (SIL Open Font License 1.1) */
 @font-face {
   font-family: "Lora";
   font-style: normal;

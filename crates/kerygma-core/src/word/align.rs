@@ -1,7 +1,6 @@
 //! Finner den delen av manusteksten som best stemmer med en bibeltekst
 //! (lokal sekvenssammenstilling, Smith-Waterman, på ord). Tåler andre
 //! oversettelser, utelatte ord og små stavemåteforskjeller.
-//! Skrevet etter `word-to-markdown/src/align.ts`.
 
 use std::sync::LazyLock;
 

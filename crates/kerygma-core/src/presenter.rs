@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn hver_slide_merkes_der_den_star_i_manuset() {
-        // Et vers er teksten fra forrige referanse, som i pluginen.
+        // Et vers er teksten fra forrige referanse.
         let manuscript = "---\ntags: a\n---\n# Påske\n\nInnledning. Elsket verden (Joh 3,16) og mer. Herren er min hyrde (Sal 23,1)\n\n> Et sitat\n> over to linjer.\n\n- ![[bilde.png]]\n";
         assert_eq!(
             marked(manuscript, &SlideOptions::default()),

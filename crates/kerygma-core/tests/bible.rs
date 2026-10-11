@@ -1,4 +1,4 @@
-//! Testene fra `test/bible.test.ts` i obsidian-slide-creator. De hoppes over
+//! Oppslag av oversettelser og innstillingene for `bibel`. Testene hoppes over
 //! når `bibler/` mangler oversettelsene.
 
 mod common;

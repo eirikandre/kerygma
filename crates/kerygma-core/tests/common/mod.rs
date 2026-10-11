@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-/// Fasiten med referanser fra bibel-prosjektet, som i `test/fixtures` i pluginen.
+/// Fasiten med referanser fra bible-repoet (lages med `node scripts/book-names.mjs --fra-bible`).
 pub fn generated() -> Vec<String> {
     include_str!("../fixtures/bibel-referanser.txt").trim().split('\n').map(String::from).collect()
 }
@@ -14,7 +14,7 @@ pub fn bibles_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../bibler")
 }
 
-/// `bibel` med innstillingene fra pluginen, eller `None` (med en melding) når
+/// `bibel` med standardinnstillingene til appen, eller `None` (med en melding) når
 /// `bibler/` mangler nb88.bin eller kjv.bin.
 pub fn bibel() -> Option<Bibel> {
     let dir = bibles_dir();

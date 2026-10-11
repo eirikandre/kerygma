@@ -1,8 +1,7 @@
 //! `bibel` fra bible-repoet, med oversettelsene (`*.bin`) lest fra disk.
 //!
-//! Skrevet etter `src/bible.ts` i obsidian-slide-creator. Pluginen kjører
-//! `bibel` som WASM-modul; her brukes `bibel-core` direkte, med de samme
-//! argumentene og de samme svarene.
+//! `bibel-core` brukes gjennom `run`, med de samme argumentene og svarene som
+//! kjørbaren `bibel`, så oppslag og søk oppfører seg som på kommandolinjen.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -44,7 +43,7 @@ impl Bibel {
         Bibel::from_files(files)
     }
 
-    /// Starter `bibel` med oversettelsene, som `loadBibel` i pluginen.
+    /// Starter `bibel` med oversettelsene (innholdet i `*.bin`, med filnavnet til feilmeldinger).
     pub fn from_files(files: Vec<(String, Vec<u8>)>) -> Result<Bibel, String> {
         if files.is_empty() {
             return Err("fant ingen oversettelser (*.bin)".to_string());

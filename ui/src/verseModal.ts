@@ -1,6 +1,6 @@
 // «Sett inn bibelvers»: "1mos3:1" viser verset, og Enter setter det inn ved
 // markøren som sitatet "> tekst (ref)". Annen tekst, som "tro håp", søkes etter
-// (også uten "s=" som i pluginen). Etter verseModal.ts i pluginen.
+// (også uten "s=").
 import { api, errorMessage, type Suggestion } from "./api.ts";
 import { openModal } from "./dialogs.ts";
 import type { Editor } from "./editor.ts";

@@ -1,7 +1,8 @@
 //! «Lag presentasjon»: hvor presentasjonen havner, og innholdet i den.
 //!
-//! Skrevet etter `createSlideCopy` og `translations` i `src/main.ts` i
-//! obsidian-slide-creator. Stiene er relative til vault-roten og bruker `/`.
+//! En presentasjon er en vanlig markdown-fil ved siden av manuset, merket med
+//! [`marker`]. Filer uten markør (laget før markøren fantes) kjennes igjen på
+//! navnet: `<manus><suffix>.md`. Stiene er relative til vault-roten og bruker `/`.
 
 use std::sync::LazyLock;
 

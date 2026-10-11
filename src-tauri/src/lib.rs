@@ -165,6 +165,7 @@ fn specta_builder() -> tauri_specta::Builder<Wry> {
         .constant("PRESENTATION_MARKER_PATTERN", kerygma_core::presentation::MARKER_PATTERN)
         .constant("PRESENTER_START", kerygma_core::presenter::START)
         .constant("PRESENTER_END", kerygma_core::presenter::END)
+        .constant("DEFAULT_SETTINGS", kerygma_core::settings::Settings::default())
         .constant("DEFAULT_APPEARANCE", Appearance::default())
         .constant("APPEARANCE_MIN_SIZE", Appearance::MIN_SIZE)
         .constant("APPEARANCE_MAX_SIZE", Appearance::MAX_SIZE)

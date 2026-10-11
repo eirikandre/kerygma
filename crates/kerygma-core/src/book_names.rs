@@ -1,6 +1,6 @@
-// Generert av scripts/book-names.mjs fra BOOK_IDS i obsidian-slide-creator/src/bookNames.ts.
+// Generert av scripts/book-names.mjs fra scripts/book-names.json. Ikke rediger for hånd.
 // Boknavn og forkortelser fra alle oversettelsene, med bok-id-en `bibel` slår opp på.
-// Rekkefølgen er den samme som i pluginen: senere navn med samme nøkkel vinner.
+// Sortert etter navn (norsk rekkefølge); senere navn med samme nøkkel vinner.
 pub const BOOK_IDS: &[(&str, &str)] = &[
     ("1 Chronicles", "1Chr"),
     ("1 Corinthians", "1Cor"),

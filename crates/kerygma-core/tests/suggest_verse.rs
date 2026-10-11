@@ -1,5 +1,5 @@
-//! `suggest_verse`: oppslagsvinduet søker av seg selv når teksten ikke er en referanse.
-//! Ikke fra pluginen (der må søk starte med «s=»).
+//! `suggest_verse`: oppslagsvinduet søker av seg selv når teksten ikke er en referanse,
+//! uten at søket må starte med «s=».
 
 mod common;
 

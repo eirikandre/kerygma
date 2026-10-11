@@ -1,5 +1,5 @@
-//! Testene fra `word-to-markdown/test/convert.test.ts` i obsidian-slide-creator.
-//! De bruker en liten falsk bibel, så de trenger ikke `bibler/`.
+//! Word-importen (`word::convert`). Testene bruker en liten falsk bibel, så de
+//! trenger ikke `bibler/`.
 
 use std::collections::HashMap;
 

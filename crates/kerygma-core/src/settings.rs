@@ -1,4 +1,4 @@
-//! Innstillingene, med de samme feltene og standardverdiene som pluginen.
+//! Innstillingene for en vault, med standardverdier.
 //! Lagres per vault i `<vault>/.kerygma/settings.json`.
 
 use serde::{Deserialize, Serialize};
@@ -9,9 +9,8 @@ use crate::extract::DEFAULT_MAX_CHARS;
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
+    /// Legges til navnet på manuset for å gi navnet på presentasjonen: «Påske - presentasjon.md».
     pub suffix: String,
-    /// Fra pluginen. Appen åpner alltid presentasjonen, siden den ikke vises i treet.
-    pub open_copy: bool,
     pub max_chars: usize,
     pub add_translation: bool,
     pub translation: String,
@@ -33,7 +32,6 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             suffix: " - presentasjon".to_string(),
-            open_copy: true,
             max_chars: DEFAULT_MAX_CHARS,
             add_translation: true,
             translation: "kjv".to_string(),
@@ -48,13 +46,13 @@ impl Default for Settings {
 }
 
 impl Settings {
-    /// Leser bare feltene som finnes nå, som `loadSettings`. Ukjente felt og
-    /// felt med feil type ignoreres, og ugyldige verdier gir standardverdien.
+    /// Leser bare feltene som finnes nå. Ukjente felt (som `openCopy` fra eldre
+    /// versjoner) og felt med feil type ignoreres, og ugyldige verdier gir standardverdien.
     pub fn from_json(json: &str) -> Settings {
         crate::json::over_default::<Settings>(json).sanitized()
     }
 
-    /// Som innstillingssiden i pluginen: tom suffix, `maxChars` ≤ 0 og tomme
+    /// Tom suffix, `maxChars` ≤ 0 og tomme
     /// oversettelser gir standardverdien.
     pub fn sanitized(mut self) -> Settings {
         let default = Settings::default();
@@ -97,9 +95,10 @@ mod tests {
             Settings::from_json(r#"{"suffix":"","maxChars":-3,"translation":" nb24 ","trigger":":b","openCopy":false}"#);
         assert_eq!(
             settings,
-            Settings { translation: "nb24".to_string(), open_copy: false, ..Settings::default() }
+            Settings { translation: "nb24".to_string(), ..Settings::default() }
         );
         assert!(!settings.to_json().contains("trigger"));
+        assert!(!settings.to_json().contains("openCopy"));
         assert_eq!(Settings::from_json("ikke json"), Settings::default());
     }
 

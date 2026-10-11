@@ -72,6 +72,8 @@ export const APPEARANCE_MIN_SIZE = 10 as const;
 
 export const DEFAULT_APPEARANCE = {"font":"georgia","fontSize":17,"theme":"system"} as const;
 
+export const DEFAULT_SETTINGS = {"addTranslation":true,"aliases":"n=nb88,e=kjv,ne=nb88+kjv","defaultTranslation":"nb88","headingFont":"","importFolder":"","maxChars":350,"quoteFont":"","slideTheme":"kveld","suffix":" - presentasjon","translation":"kjv"} as const;
+
 export const PRESENTATION_MARKER_PATTERN = "^<!-- kerygma-presentasjon: (.+?) -->[ \\t]*\\r?$" as const;
 
 export const PRESENTER_END = 1048576 as const;
@@ -181,9 +183,8 @@ export type SearchResult = {
 };
 
 export type Settings = {
+	/**  Legges til navnet på manuset for å gi navnet på presentasjonen: «Påske - presentasjon.md». */
 	suffix: string,
-	/**  Fra pluginen. Appen åpner alltid presentasjonen, siden den ikke vises i treet. */
-	openCopy: boolean,
 	maxChars: number,
 	addTranslation: boolean,
 	translation: string,

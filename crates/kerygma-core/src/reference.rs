@@ -2,8 +2,7 @@
 //! "Rom 8,28; 12,1-2" og "Joh 3:16 NB", og alt `bibel` lager, som
 //! "Profeten Jesaja 53:5", "Johannes´ evangelium 3:16-17" og "John 3:16".
 //!
-//! Skrevet etter `src/bibleReference.ts` i obsidian-slide-creator. `\d` er
-//! skrevet `[0-9]`, siden `\d` i JavaScript bare er ASCII-sifre.
+//! Sifre skrives `[0-9]` (bare ASCII), ikke `\d`, som i Rust også godtar andre sifre.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
