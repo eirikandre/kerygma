@@ -1,0 +1,51 @@
+# Bygger appen for macOS og Windows og legger den i et utkast til release på GitHub
+# når en tagg som v0.2.0 blir pushet. Utkastet publiseres for hånd under Releases.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bygg:
+    name: Bygg (${{ matrix.navn }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - navn: macOS
+            os: macos-latest
+            args: --target universal-apple-darwin
+          - navn: Windows
+            os: windows-latest
+            args: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      # Tauri-CLI-en ligger i ui/, men `npm run tauri` kjører den fra roten, der src-tauri/ er.
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: npm --prefix ui run tauri --
+          args: ${{ matrix.args }}
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          releaseName: Kerygma ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          releaseBody: Last ned .dmg for macOS eller .msi for Windows.
+          releaseDraft: true
+          prerelease: false

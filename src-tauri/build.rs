@@ -1,3 +1,22 @@
 fn main() {
-    tauri_build::build()
+    // tauri-build legger manifestet (Common Controls v6) bare inn i programfila, ikke i
+    // testene. Uten det stopper testene på Windows med STATUS_ENTRYPOINT_NOT_FOUND, fordi
+    // tauri bruker funksjoner som bare finnes i v6. Derfor legges manifestet inn av linkeren,
+    // i alt som bygges fra pakka.
+    let mut windows = tauri_build::WindowsAttributes::new();
+    if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc") {
+        windows = tauri_build::WindowsAttributes::new_without_app_manifest();
+        legg_inn_manifest();
+    }
+    tauri_build::try_build(tauri_build::Attributes::new().windows_attributes(windows))
+        .expect("tauri-build feilet");
+}
+
+fn legg_inn_manifest() {
+    let manifest = std::env::current_dir()
+        .expect("finner ikke mappa")
+        .join("windows-app-manifest.xml");
+    println!("cargo:rerun-if-changed={}", manifest.display());
+    println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+    println!("cargo:rustc-link-arg=/MANIFESTINPUT:{}", manifest.display());
 }
