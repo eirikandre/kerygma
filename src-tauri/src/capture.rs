@@ -1,10 +1,9 @@
 //! PDF av et utsnitt av vinduet, til eksport av presentasjonen. Bruker `createPDF` i
 //! WKWebView, så teksten blir tekst (ikke et bilde) med de samme skriftene som på skjermen.
 
-use std::sync::mpsc;
-use std::time::Duration;
-
 /// Et rektangel i CSS-piksler i nettsiden.
+// Feltene leses bare på macOS, der PDF-en lages.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Debug, Clone, Copy, serde::Deserialize, specta::Type)]
 pub struct Rect {
     pub x: f64,
@@ -16,7 +15,8 @@ pub struct Rect {
 /// PDF (én side) av `rect` i nettsiden i `webview`.
 #[cfg(target_os = "macos")]
 pub fn pdf(webview: &tauri::Webview, rect: Rect) -> Result<Vec<u8>, String> {
-    use std::sync::Mutex;
+    use std::sync::{mpsc, Mutex};
+    use std::time::Duration;
 
     use block2::RcBlock;
     use objc2::MainThreadMarker;
