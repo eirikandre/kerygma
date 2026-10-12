@@ -37,12 +37,13 @@ jobs:
           cache-dependency-path: ui/package-lock.json
       - run: npm ci
         working-directory: ui
-      # Tauri-CLI-en ligger i ui/, men `npm run tauri` kjører den fra roten, der src-tauri/ er.
+      # Tauri-CLI-en ligger i ui/, men kjøres fra roten, der src-tauri/ er. Ikke bruk npm her:
+      # tauri-action setter da inn egne `run` og `--` i kommandoen.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tauriScript: npm --prefix ui run tauri --
+          tauriScript: npx --prefix ui tauri
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseName: Kerygma ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
