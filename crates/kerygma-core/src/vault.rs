@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 
 use serde::Serialize;
 
-use crate::presentation::{presentation_paths, presentation_paths_for};
+use crate::presentation::{presentation_paths, presentation_paths_for, presentation_source};
 
 pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "avif"];
 
@@ -56,6 +56,21 @@ fn join(folder: &str, name: &str) -> String {
     } else {
         format!("{folder}/{name}")
     }
+}
+
+/// Mappa med bildene til et manus, ved siden av det og med samme navn:
+/// "Prekener/Påske.md" har bildene i "Prekener/Påske".
+pub fn image_folder(note: &str) -> Option<String> {
+    note.strip_suffix(".md").filter(|stem| !stem.is_empty()).map(String::from)
+}
+
+/// Har mappa bare bilder (og skjulte filer som `.DS_Store`)? En tom mappe regnes med.
+fn only_images(dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else { return false };
+    entries.filter_map(Result::ok).all(|entry| {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        hidden(&name) || (entry.path().is_file() && is_image(&name))
+    })
 }
 
 fn hidden(name: &str) -> bool {
@@ -162,6 +177,10 @@ impl Vault {
                 let path = join(prefix, &file_name);
                 let file_type = entry.file_type().ok()?;
                 let is_dir = file_type.is_dir() || (file_type.is_symlink() && entry.path().is_dir());
+                // Bildemappa til et manus vises ikke; bildene hører til manuset.
+                if is_dir && dir.join(format!("{file_name}.md")).is_file() && only_images(&entry.path()) {
+                    return None;
+                }
                 Some(if is_dir {
                     Tree { name: file_name, children: self.children(&entry.path(), &path, suffix), path, kind: Kind::Folder }
                 } else if let Some(name) = file_name.strip_suffix(".md") {
@@ -250,8 +269,41 @@ impl Vault {
         if to.exists() && new_path.to_lowercase() != path.to_lowercase() {
             return Err(format!("«{new_path}» finnes allerede."));
         }
+        let images = if is_note { self.image_folder_of(path) } else { None };
         std::fs::rename(&from, &to).map_err(|e| format!("Kunne ikke gi nytt navn til «{path}»: {e}"))?;
+        if let (Some(old), Some(new)) = (images, image_folder(&new_path)) {
+            self.move_image_folder(&old, &new)?;
+        }
         Ok(new_path)
+    }
+
+    /// Mappa med bildene til manuset, hvis den finnes og bare har bilder.
+    pub fn image_folder_of(&self, note: &str) -> Option<PathBuf> {
+        let folder = self.resolve(&image_folder(note)?).ok()?;
+        (folder.is_dir() && only_images(&folder)).then_some(folder)
+    }
+
+    /// Flytter bildemappa etter manuset. Finnes det allerede noe med det nye navnet,
+    /// blir mappa stående; bildene finnes likevel, siden lenkene bare bruker filnavnet.
+    fn move_image_folder(&self, old: &Path, new: &str) -> Result<(), String> {
+        let new = self.resolve(new)?;
+        let same = old.to_string_lossy().to_lowercase() == new.to_string_lossy().to_lowercase();
+        if !new.exists() || same {
+            std::fs::rename(old, &new).map_err(|e| format!("Kunne ikke flytte bildene til manuset: {e}"))?;
+        }
+        Ok(())
+    }
+
+    /// Et filnavn som ikke finnes noe sted i vaulten (store og små bokstaver regnes som
+    /// like): "kart.png", ellers "kart 2.png" osv. Da finner `![[kart 2.png]]` alltid
+    /// riktig bilde, også etter at manuset og bildemappa har fått nytt navn.
+    pub fn unique_file_name(&self, name: &str) -> String {
+        let taken = self.files_by_name();
+        let (stem, extension) = name.rsplit_once('.').map_or((name, String::new()), |(s, e)| (s, format!(".{e}")));
+        (1..)
+            .map(|n| if n == 1 { name.to_string() } else { format!("{stem} {n}{extension}") })
+            .find(|candidate| !taken.contains_key(&candidate.to_lowercase()))
+            .expect("et ledig navn")
     }
 
     /// Flytter fila eller mappa til `folder` (tom for roten) og gir den nye stien.
@@ -278,6 +330,7 @@ impl Vault {
         if to.exists() {
             return Err(format!("«{new_path}» finnes allerede."));
         }
+        let images = if path.ends_with(".md") && from.is_file() { self.image_folder_of(path) } else { None };
         let presentation = (path.ends_with(".md") && from.is_file()).then(|| {
             let old = presentation_paths(path, suffix).presentation;
             (old.clone(), presentation_paths(&new_path, suffix).presentation)
@@ -289,15 +342,64 @@ impl Vault {
                 std::fs::rename(&old, &new).map_err(|e| format!("Kunne ikke flytte presentasjonen: {e}"))?;
             }
         }
+        if let (Some(old), Some(new)) = (images, image_folder(&new_path)) {
+            self.move_image_folder(&old, &new)?;
+        }
         Ok(new_path)
     }
 
-    /// Legger fila eller mappa i papirkurven.
-    pub fn delete(&self, path: &str) -> Result<(), String> {
+    /// Legger fila eller mappa i papirkurven. Et manus tar med seg presentasjonene som er
+    /// laget fra det, og bildemappa si. Gir stiene til filene og mappene som ble slettet.
+    pub fn delete(&self, path: &str, suffix: &str) -> Result<Vec<String>, String> {
         if path.trim_matches('/').is_empty() {
             return Err("Kan ikke slette hele vaulten.".to_string());
         }
-        trash::delete(self.resolve(path)?).map_err(|e| format!("Kunne ikke slette «{path}»: {e}"))
+        let is_note = path.ends_with(".md") && self.resolve(path)?.is_file();
+        let presentations = if is_note { self.presentations_of(path, suffix) } else { vec![] };
+        let images = if is_note { self.image_folder_of(path) } else { None };
+        trash::delete(self.resolve(path)?).map_err(|e| format!("Kunne ikke slette «{path}»: {e}"))?;
+        let mut deleted = vec![path.to_string()];
+        for presentation in presentations {
+            trash::delete(self.resolve(&presentation)?)
+                .map_err(|e| format!("Kunne ikke slette presentasjonen «{presentation}»: {e}"))?;
+            deleted.push(presentation);
+        }
+        if let Some(images) = images {
+            trash::delete(&images).map_err(|e| format!("Kunne ikke slette bildene til «{path}»: {e}"))?;
+            deleted.extend(self.relative(&images));
+        }
+        Ok(deleted)
+    }
+
+    /// Presentasjonene som er laget fra manuset: filer i samme mappe med markøren som peker på
+    /// det, og `<navn><suffix>.md` uten markør (laget før markøren fantes). Er `note` selv en
+    /// presentasjon, har den ingen.
+    pub fn presentations_of(&self, note: &str, suffix: &str) -> Vec<String> {
+        let head = |path: &str| -> Option<String> {
+            const HEAD: u64 = 16 * 1024;
+            let mut bytes = Vec::new();
+            std::fs::File::open(self.resolve(path).ok()?).ok()?.take(HEAD).read_to_end(&mut bytes).ok()?;
+            Some(String::from_utf8_lossy(&bytes).into_owned())
+        };
+        if head(note).is_some_and(|text| presentation_paths_for(note, &text, suffix).from_presentation) {
+            return vec![];
+        }
+        let folder = parent_folder(note);
+        let file_name = note.rsplit('/').next().unwrap_or(note);
+        let Ok(dir) = self.resolve(folder) else { return vec![] };
+        let Ok(entries) = std::fs::read_dir(dir) else { return vec![] };
+        let mut found: Vec<String> = entries
+            .filter_map(Result::ok)
+            .map(|entry| join(folder, &entry.file_name().to_string_lossy()))
+            .filter(|path| path != note && path.ends_with(".md"))
+            .filter(|path| head(path).and_then(|text| presentation_source(&text)).as_deref() == Some(file_name))
+            .collect();
+        let by_name = presentation_paths(note, suffix).presentation;
+        if by_name != note && !found.contains(&by_name) && head(&by_name).is_some_and(|text| presentation_source(&text).is_none()) {
+            found.push(by_name);
+        }
+        found.sort();
+        found
     }
 
     /// Alle filer i vaulten etter filnavn (uten skjulte mapper), sortert, så
@@ -514,6 +616,58 @@ mod tests {
         assert_eq!(vault.resolve_link("Påske#Innledning", "b.md").as_deref(), Some("Prekener/Påske.md"));
         assert_eq!(vault.resolve_link("A", "Prekener/Påske.md").as_deref(), Some("A.md"));
         assert_eq!(encode_uri_component("/a b/ø.png"), "%2Fa%20b%2F%C3%B8.png");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn bildemappa_folger_manuset_og_vises_ikke_i_treet() {
+        let (dir, vault) = temp_vault("bilder");
+        let suffix = " - presentasjon";
+        std::fs::create_dir_all(dir.join("Prekener/Påske")).unwrap();
+        std::fs::write(dir.join("Prekener/Påske/kors.png"), "png").unwrap();
+        // En mappe med andre filer enn bilder er en vanlig mappe.
+        std::fs::create_dir_all(dir.join("Notater")).unwrap();
+        std::fs::write(dir.join("Notater.md"), "").unwrap();
+        std::fs::write(dir.join("Notater/liste.txt"), "").unwrap();
+        let tree = vault.tree(suffix);
+        let names: Vec<&str> = tree.children.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"Notater"), "{names:?}");
+        let prekener: Vec<&str> = tree.children[1].children.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(prekener, ["bilder", "Påske"]);
+
+        assert_eq!(vault.rename("Prekener/Påske.md", "Oppstandelse").unwrap(), "Prekener/Oppstandelse.md");
+        assert!(dir.join("Prekener/Oppstandelse/kors.png").is_file());
+        assert!(!dir.join("Prekener/Påske").exists());
+
+        assert_eq!(vault.move_to("Prekener/Oppstandelse.md", "", suffix).unwrap(), "Oppstandelse.md");
+        assert!(dir.join("Oppstandelse/kors.png").is_file());
+        assert_eq!(vault.unique_file_name("kors.png"), "kors 2.png");
+        assert_eq!(vault.unique_file_name("nytt.png"), "nytt.png");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn presentasjonene_som_er_laget_fra_et_manus() {
+        let (dir, vault) = temp_vault("presentasjoner_av");
+        let suffix = " - presentasjon";
+        let write = |name: &str, text: &str| std::fs::write(dir.join("Prekener").join(name), text).unwrap();
+        write("Påske - presentasjon.md", "<!-- kerygma-presentasjon: Påske.md -->\n");
+        write("Lysbilder.md", "<!-- kerygma-presentasjon: Påske.md -->\n");
+        write("Jul - presentasjon.md", "<!-- kerygma-presentasjon: Jul.md -->\n");
+        write("Notater.md", "Om Påske.md");
+        assert_eq!(
+            vault.presentations_of("Prekener/Påske.md", suffix),
+            ["Prekener/Lysbilder.md", "Prekener/Påske - presentasjon.md"]
+        );
+        // En presentasjon har ingen presentasjoner.
+        assert!(vault.presentations_of("Prekener/Lysbilder.md", suffix).is_empty());
+
+        // Uten markør (laget før markøren fantes) avgjør navnet.
+        std::fs::write(dir.join("b - presentasjon.md"), "# b").unwrap();
+        assert_eq!(vault.presentations_of("b.md", suffix), ["b - presentasjon.md"]);
+        // Med en markør som peker på et annet manus, hører den ikke til.
+        std::fs::write(dir.join("A - presentasjon.md"), "<!-- kerygma-presentasjon: Annet.md -->").unwrap();
+        assert!(vault.presentations_of("A.md", suffix).is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

@@ -41,6 +41,19 @@ pub fn render_html(markdown: &str, images: ImageResolver) -> String {
     to_html(root, &options)
 }
 
+/// HTML for et helt dokument uten bilder, som brukerveiledningen: som lesevisningen, men
+/// overskriftene får id-er («## 4. Bilder» får `id="4-bilder"`), så lenker som `[Bilder](#4-bilder)`
+/// virker.
+pub fn render_document(markdown: &str) -> String {
+    let source = prepare(markdown);
+    let arena = Arena::new();
+    let mut options = options();
+    options.extension.header_id_prefix = Some(String::new());
+    let root = parse_document(&arena, &source, &options);
+    transform(&arena, root, &|_, _| None);
+    to_html(root, &options)
+}
+
 /// HTML per slide: delt på `---`, uten tomme slides.
 pub fn slides(markdown: &str, images: ImageResolver) -> Vec<String> {
     let source = prepare(markdown);
@@ -358,6 +371,15 @@ mod tests {
         assert_eq!(slides[0], "<h1>Del 1</h1>\n");
         assert!(slides[1].starts_with("<div class=\"bibel-parallell\">\n<p><sup>1</sup> a (Sal 1:1)</p>"), "{}", slides[1]);
         assert!(slides[2].contains("asset://w/kart.png"), "{}", slides[2]);
+    }
+
+    #[test]
+    fn dokumenter_far_id_pa_overskriftene() {
+        let html = render_document("## 4. Bilder\n\nSe [Bilder](#4-bilder).");
+        assert!(html.contains(r#"id="4-bilder""#), "{html}");
+        assert!(html.contains(r##"<a href="#4-bilder">Bilder</a>"##), "{html}");
+        // Lesevisningen er som før.
+        assert!(!render_html("## 4. Bilder", &no_images).contains("id="));
     }
 
     #[test]

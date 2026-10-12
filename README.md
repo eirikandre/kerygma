@@ -19,7 +19,7 @@ scripts             fontene i slides.css
 
 ## Komme i gang
 
-Krever Rust og Node 22. Alt annet ligger i repoet, også oversettelsene: Bibelen 1930 (`nb30`) og King James Version (`kjv`). Andre oversettelser som legges i `bibler/`, blir med når appen bygges (se [`bibler/README.md`](bibler/README.md)).
+Krever Rust og Node 22. Alt annet ligger i repoet, også oversettelsene: Bibelen 1930 (`nb30`) og King James Version (`kjv`). Andre oversettelser kan legges til etter at appen er installert, under **Innstillinger → Bibeloversettelser** (se [`bibler/README.md`](bibler/README.md)).
 
 ```sh
 (cd ui && npm install)

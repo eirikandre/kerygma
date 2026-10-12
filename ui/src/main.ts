@@ -1,4 +1,5 @@
 // Appen: treet til venstre, én fil om gangen i editoren til høyre.
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -21,6 +22,7 @@ import {
   type Mark,
 } from "./format.ts";
 import { type IconName, icon, initTooltips, setIcon } from "./icons.ts";
+import { addImageData, IMAGE_EXTENSIONS } from "./images.ts";
 import { importWord } from "./importReport.ts";
 import { present } from "./present.ts";
 import { monitorCount, otherMonitor, presenterRunning, startPresenter, stopPresenter } from "./presenter.ts";
@@ -94,6 +96,19 @@ const editor = new Editor(
 // Fila som er åpen, med autolagring og endringer utenfra.
 const doc = new OpenDocument(editor, { reloaded: () => showMode(), closed: () => showClosed() });
 
+// Miniatyrbildene i editoren slås opp for fila som er åpen.
+editor.imageUrl = (target) => (doc.path ? api.imageUrl(doc.path, target) : Promise.resolve(null));
+// Bilder som dras inn fra Finder eller Utforsker, legges i bildemappa og settes inn der de slippes.
+editor.onDropImages = (files, pos) => {
+  const path = doc.path;
+  if (!path) return;
+  void run(async () => {
+    const markdowns: string[] = [];
+    for (const file of files) markdowns.push(await addImageData(path, file));
+    if (doc.path === path) editor.insertImages(markdowns, pos);
+  });
+};
+
 // Skrift og størrelse fra innstillingene; Cmd/Ctrl + rullehjul over teksten endrer størrelsen.
 onAppearanceChange(() => editor.view.requestMeasure());
 zoomWithWheel([$("editor"), $("preview")]);
@@ -141,6 +156,8 @@ async function openVault(path?: string) {
   const chosen = path ?? (await openDialog({ directory: true, title: "Åpne mappe med manus" }));
   if (typeof chosen !== "string") return;
   await doc.save();
+  // Før den nye mappa åpnes: oppryddingen gjelder vaulten fila ligger i.
+  await doc.cleanImages();
   const result = await api.openVault(chosen);
   state.vaultPath = chosen;
   tree.setVault(chosen);
@@ -166,15 +183,39 @@ function inTree(path: string, node: Tree | undefined = state.tree): boolean {
   return !!node && (node.path === path || node.children.some((child) => inTree(path, child)));
 }
 
+/** Manuset presentasjonen som er åpen, er laget fra, eller undefined når fila ikke er en presentasjon. */
+function presentationManuscript(): string | undefined {
+  const source = doc.path ? presentationSource(doc.content) : undefined;
+  if (!source || !doc.path) return undefined;
+  const folder = folderOf(doc.path);
+  return folder ? `${folder}/${source}` : source;
+}
+
+/**
+ * Presentasjoner redigeres aldri for hånd: de lages fra manuset og vises bare, som et
+ * mellomsteg før presentasjonen startes. Er en presentasjon åpen, åpnes manuset i
+ * redigering i stedet. Gir true når fila som er åpen nå kan redigeres.
+ */
+async function editManuscriptInstead(): Promise<boolean> {
+  const manuscript = presentationManuscript();
+  if (!manuscript) return true;
+  if (!inTree(manuscript)) {
+    notice(`Fant ikke manuset «${basename(manuscript)}». Presentasjonen kan ikke redigeres.`);
+    return false;
+  }
+  await openNote(manuscript, "edit");
+  return doc.path === manuscript;
+}
+
 /**
  * Knappene og varselet etter om fila er en presentasjon laget av appen
  * (markøren `<!-- kerygma-presentasjon: … -->`): bare presentasjoner kan vises,
- * «Lag presentasjon» lager den på nytt fra manuset, og i redigering varsles det
- * om at endringer blir overskrevet.
+ * «Lag presentasjon» lager den på nytt fra manuset, pennen redigerer manuset, og
+ * det varsles hvis manuset ikke finnes lenger.
  */
 function updatePresentationUi() {
   const source = doc.path ? presentationSource(doc.content) : undefined;
-  const manuscript = source && doc.path ? `${folderOf(doc.path) ? `${folderOf(doc.path)}/` : ""}${source}` : undefined;
+  const manuscript = presentationManuscript();
   const create = $<HTMLButtonElement>("create-presentation");
   // I manuset lager knappen presentasjonen; i presentasjonen kommer ▷ etter den.
   // Med to skjermer starter ▷ talervisningen, som lager slidene fra manuset, så da vises den i manuset også.
@@ -199,17 +240,19 @@ function updatePresentationUi() {
     create.disabled = false;
     setIcon(create, "presentation", "Lag presentasjon (Cmd/Ctrl + Shift + M)");
   }
-  const banner = $("presentation-banner");
-  banner.hidden = !source || state.mode !== "edit";
+  // Pennen redigerer manuset når en presentasjon er åpen.
+  const toggle = $<HTMLButtonElement>("toggle-preview");
+  const missing = !!source && !(manuscript && inTree(manuscript));
+  toggle.disabled = missing;
   if (source) {
-    const exists = !!manuscript && inTree(manuscript);
-    $("presentation-banner-text").textContent = exists
-      ? `Dette er en presentasjon laget fra «${basename(source)}». ` +
-        "Endringer du gjør her, blir overskrevet neste gang presentasjonen lages."
-      : `Dette er en presentasjon laget fra «${basename(source)}», men manuset finnes ikke lenger. ` +
-        "Presentasjonen kan ikke lages på nytt.";
-    $("open-manuscript").hidden = !exists;
-    $("open-manuscript").onclick = () => manuscript && void run(() => openNote(manuscript));
+    setIcon(toggle, "pencil", missing ? `Fant ikke manuset «${basename(source)}»` : `Rediger manuset «${basename(source)}» (Cmd/Ctrl + E)`);
+  }
+  const banner = $("presentation-banner");
+  banner.hidden = !missing;
+  if (missing && source) {
+    $("presentation-banner-text").textContent =
+      `Dette er en presentasjon laget fra «${basename(source)}», men manuset finnes ikke lenger. ` +
+      "Presentasjonen kan verken redigeres eller lages på nytt.";
   }
 }
 
@@ -226,7 +269,8 @@ async function refreshTree() {
 async function openNote(path: string, mode?: Mode) {
   if (path === doc.path) return;
   const content = await doc.open(path);
-  state.mode = mode ?? (presentationSource(content) ? "preview" : state.manuscriptMode);
+  // Presentasjoner vises alltid i lesevisning; de redigeres ikke for hånd.
+  state.mode = presentationSource(content) ? "preview" : (mode ?? state.manuscriptMode);
   $("title").textContent = basename(path);
   $("toolbar").hidden = false;
   $("empty").hidden = true;
@@ -239,7 +283,7 @@ async function openNote(path: string, mode?: Mode) {
 /** Åpner fila fra et søketreff, i redigering, og går til linja med treffet. */
 async function openNoteAt(path: string, line?: number) {
   await openNote(path);
-  if (line === undefined || doc.path !== path) return;
+  if (line === undefined || doc.path !== path || presentationManuscript()) return;
   if (state.mode === "preview") {
     state.mode = "edit";
     await showMode();
@@ -267,8 +311,8 @@ async function showMode() {
   $("editor").hidden = preview;
   $("preview").hidden = !preview;
   $("format").hidden = preview;
-  updatePresentationUi();
   setIcon($("toggle-preview"), preview ? "pencil" : "eye", preview ? "Rediger (Cmd/Ctrl + E)" : "Lesevisning (Cmd/Ctrl + E)");
+  updatePresentationUi();
   if (preview && doc.path) {
     setSafeHtml($("preview"), await api.renderNote(doc.path, doc.content));
   }
@@ -276,15 +320,18 @@ async function showMode() {
 
 async function togglePreview() {
   if (!doc.path) return;
+  // I en presentasjon redigerer pennen manuset.
+  if (presentationManuscript()) {
+    await editManuscriptInstead();
+    return;
+  }
   state.mode = state.mode === "edit" ? "preview" : "edit";
-  // Valget huskes for manus; i en presentasjon gjelder det bare der og da.
-  if (!presentationSource(doc.content)) {
-    state.manuscriptMode = state.mode;
-    try {
-      localStorage.setItem(MODE_KEY, state.mode);
-    } catch {
-      // Uten lagring huskes valget til appen lukkes.
-    }
+  // Valget huskes til neste manus som åpnes.
+  state.manuscriptMode = state.mode;
+  try {
+    localStorage.setItem(MODE_KEY, state.mode);
+  } catch {
+    // Uten lagring huskes valget til appen lukkes.
   }
   await showMode();
   if (state.mode === "edit") editor.focus();
@@ -361,9 +408,11 @@ async function moved(path: string, newPath: string) {
 }
 
 async function deletePath(path: string, name: string) {
-  if (!(await confirmDelete(name))) return;
+  if (!(await confirmDelete(name, path.endsWith(".md")))) return;
+  // Lukkes før slettingen, så fila ikke lagres på nytt; presentasjoner som slettes med manuset, lukkes etterpå.
   if (doc.path === path || doc.path?.startsWith(`${path}/`)) closeNote();
-  await api.delete(path);
+  const deleted = await api.delete(path);
+  if (doc.path && deleted.some((gone) => doc.path === gone || doc.path?.startsWith(`${gone}/`))) closeNote();
   await refreshTree();
 }
 
@@ -517,14 +566,52 @@ async function exportPresentation(kind: ExportKind, path = doc.path) {
   notice(`Eksportert: ${target.split(/[\\/]/).pop()}`);
 }
 
-function insertVerse() {
+/** Hjelp → Brukerveiledning: i et eget vindu, så den kan stå åpen mens man skriver. */
+async function openHelp() {
+  const open = await WebviewWindow.getByLabel("help");
+  if (open) {
+    await open.setFocus();
+    return;
+  }
+  new WebviewWindow("help", { url: "help.html", title: "Kerygma – brukerveiledning", width: 860, height: 900 });
+}
+
+/** «Sett inn bilde»: velg ett eller flere bilder; de legges i bildemappa og settes inn ved markøren. */
+async function insertImage() {
+  if (!doc.path) {
+    notice("Åpne et manus og sett markøren der bildet skal inn.");
+    return;
+  }
+  // Fra en presentasjon settes bildet inn i manuset.
+  if (!(await editManuscriptInstead())) return;
+  const path = doc.path;
+  if (!path) return;
+  const chosen = await openDialog({
+    multiple: true,
+    title: "Sett inn bilde",
+    filters: [{ name: "Bilder", extensions: IMAGE_EXTENSIONS }],
+  });
+  const files = Array.isArray(chosen) ? chosen : typeof chosen === "string" ? [chosen] : [];
+  if (files.length === 0 || doc.path !== path) return;
+  if (state.mode === "preview") {
+    state.mode = "edit";
+    await showMode();
+  }
+  const markdowns: string[] = [];
+  for (const file of files) markdowns.push(await api.addImageFile(path, file));
+  editor.insertImages(markdowns);
+}
+
+async function insertVerse() {
   if (!doc.path) {
     notice("Åpne et manus og sett markøren der verset skal inn.");
     return;
   }
+  // Fra en presentasjon settes verset inn i manuset.
+  if (!(await editManuscriptInstead())) return;
   if (state.mode === "preview") {
     state.mode = "edit";
-    void showMode();
+    await showMode();
   }
   openVerseModal(editor);
 }
@@ -563,6 +650,8 @@ const commands: Record<string, () => void | Promise<void>> = {
   "export-pptx": () => exportPresentation("pptx"),
   "export-html": () => exportPresentation("html"),
   "insert-verse": () => insertVerse(),
+  "insert-image": () => insertImage(),
+  help: () => openHelp(),
   search: () => {
     if (state.vaultPath) {
       setSidebarHidden(false);
@@ -578,7 +667,7 @@ const command = connectCommands(
   run,
 );
 
-for (const id of ["toggle-preview", "insert-verse", "create-presentation"]) {
+for (const id of ["toggle-preview", "insert-verse", "insert-image", "create-presentation"]) {
   $(id).addEventListener("click", () => command(id));
 }
 // Alt-klikk på ▷: talervisning med slidene i et vanlig vindu.
@@ -627,6 +716,7 @@ void events.bibleWarning.listen((event) => notice(event.payload, { error: true }
 // Lagre før vinduet lukkes.
 void getCurrentWindow().onCloseRequested(async () => {
   await doc.save();
+  await doc.cleanImages();
   await stopPresenter();
 });
 window.addEventListener("blur", () => void doc.save());

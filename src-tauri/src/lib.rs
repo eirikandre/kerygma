@@ -18,7 +18,7 @@ use tauri_specta::{collect_commands, collect_events, ErrorHandlingMode, Event};
 use crate::events::{BibleReady, BibleWarning, VaultChanged};
 use crate::state::{AppState, BibleState};
 
-/// Mappa med `*.bin`: ressursene i appen, eller `bibler/` i repoet under utvikling.
+/// Mappa med `*.bin` appen kom med: ressursene i appen, eller `bibler/` i repoet under utvikling.
 fn bibles_dir(app: &AppHandle) -> Option<PathBuf> {
     let bundled = app.path().resource_dir().ok().map(|dir| dir.join("bibler"));
     let repo = cfg!(debug_assertions).then(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bibler"));
@@ -30,15 +30,21 @@ fn bibles_dir(app: &AppHandle) -> Option<PathBuf> {
     [bundled, repo].into_iter().flatten().find(has_bibles)
 }
 
-/// Laster biblene i en egen tråd, så vinduet ikke venter. Sender `bible-ready` når de er klare.
-fn load_bibles(app: &AppHandle) {
+/// Mappa der brukeren kan legge flere oversettelser (`*.bin`) etter at appen er installert:
+/// `bibler` i datamappa til appen. Den overlever nye versjoner og krever ikke administrator.
+pub(crate) fn user_bibles_dir(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_data_dir().ok().map(|dir| dir.join("bibler"))
+}
+
+/// Laster biblene i en egen tråd, så vinduet ikke venter: de appen kom med, og de brukeren har
+/// lagt i sin egen mappe (som går foran ved samme oversettelse). Sender `bible-ready` når de er klare.
+pub(crate) fn load_bibles(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
-        let loaded = match bibles_dir(&app) {
-            Some(dir) => Bibel::load_dir(&dir),
-            None => Err("Fant ingen oversettelser (*.bin) i appen.".to_string()),
-        };
+        let dirs: Vec<PathBuf> = [bibles_dir(&app), user_bibles_dir(&app)].into_iter().flatten().collect();
+        let dirs: Vec<&std::path::Path> = dirs.iter().map(PathBuf::as_path).collect();
+        let loaded = Bibel::load_dirs(&dirs).map_err(|e| format!("Fant ingen oversettelser: {e}"));
         match loaded {
             Ok(bibel) => {
                 state.set_bible(BibleState::Ready(Arc::new(bibel)));
@@ -97,6 +103,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .item(&item(app, "export-pptx", "Eksporter presentasjonen som PowerPoint …", "")?)
         .item(&item(app, "export-html", "Eksporter presentasjonen som HTML …", "")?)
         .build()?;
+    let help = SubmenuBuilder::new(app, "Hjelp").item(&item(app, "help", "Brukerveiledning", "")?).build()?;
     let window = SubmenuBuilder::new(app, "Vindu")
         .item(&item(app, "toggle-sidebar", "Vis eller skjul navigasjonstreet", "CmdOrCtrl+Shift+T")?)
         .separator()
@@ -119,7 +126,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
                 .build()?,
         );
     }
-    submenus.extend([file, edit, manus, window]);
+    submenus.extend([file, edit, manus, window, help]);
     let items: Vec<&dyn tauri::menu::IsMenuItem<Wry>> =
         submenus.iter().map(|s| s as &dyn tauri::menu::IsMenuItem<Wry>).collect();
     Menu::with_items(app, &items)
@@ -135,6 +142,7 @@ fn specta_builder() -> tauri_specta::Builder<Wry> {
         // `usize` (antall, linjenumre, `maxChars`) blir `number`; tallene er små.
         .dangerously_cast_bigints_to_number()
         .commands(collect_commands![
+            commands::help_html,
             commands::last_vault,
             commands::appearance,
             commands::set_appearance,
@@ -154,6 +162,9 @@ fn specta_builder() -> tauri_specta::Builder<Wry> {
             commands::slides,
             commands::presenter,
             commands::presentation_path,
+            commands::add_image_file,
+            commands::clean_images,
+            commands::image_url,
             commands::pdf_begin,
             commands::pdf_page,
             commands::pdf_save,
@@ -163,6 +174,8 @@ fn specta_builder() -> tauri_specta::Builder<Wry> {
             commands::get_settings,
             commands::set_settings,
             commands::bible_status,
+            commands::bibles_folder,
+            commands::reload_bibles,
             commands::import_targets,
             commands::import_word,
         ])
@@ -195,15 +208,16 @@ pub fn run() {
     if let Err(message) = export_bindings(&builder, &bindings_path()) {
         eprintln!("{message}");
     }
-    // `save_export` tar imot rå bytes og er ikke med i `bindings.ts`.
+    // `save_export` og `add_image_data` tar imot rå bytes og er ikke med i `bindings.ts`.
     let typed = builder.invoke_handler();
-    let raw: fn(tauri::ipc::Invoke<Wry>) -> bool = tauri::generate_handler![commands::save_export];
+    let raw: fn(tauri::ipc::Invoke<Wry>) -> bool =
+        tauri::generate_handler![commands::save_export, commands::add_image_data];
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
         .invoke_handler(move |invoke| match invoke.message.command() {
-            "save_export" => raw(invoke),
+            "save_export" | "add_image_data" => raw(invoke),
             _ => typed(invoke),
         })
         .setup(move |app| {

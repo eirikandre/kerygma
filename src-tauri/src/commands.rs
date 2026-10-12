@@ -40,6 +40,14 @@ fn write_app_config(app: &AppHandle, config: &AppConfig) -> Result<()> {
     config.save(&app_config_path(app)?)
 }
 
+/// Brukerveiledningen som HTML, til hjelpevinduet. Bygget inn i appen fra
+/// `docs/Brukerveiledning.md`, så den alltid hører til versjonen som kjører.
+#[tauri::command]
+#[specta::specta]
+pub fn help_html() -> String {
+    kerygma_core::markdown::render_document(include_str!("../../docs/Brukerveiledning.md"))
+}
+
 /// Mappa som sist ble åpnet, hvis den fortsatt finnes.
 #[tauri::command]
 #[specta::specta]
@@ -158,8 +166,10 @@ pub fn move_to(state: State<AppState>, path: String, folder: String) -> Result<S
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete(state: State<AppState>, path: String) -> Result<()> {
-    state.workspace()?.vault.delete(&path)
+/// Legger fila eller mappa i papirkurven; et manus tar med seg presentasjonene og bildene sine.
+/// Gir stiene som ble slettet.
+pub fn delete(state: State<AppState>, path: String) -> Result<Vec<String>> {
+    state.workspace()?.delete(&path)
 }
 
 /// Søk i navn og innhold i alle manusene.
@@ -208,6 +218,48 @@ pub fn slides(state: State<AppState>, path: String, content: Option<String>) -> 
 pub fn presenter(state: State<'_, AppState>, path: String, content: Option<String>) -> Result<Presenter> {
     let bible = state.bible();
     state.workspace()?.presenter(&path, content.as_deref(), bible.ready())
+}
+
+/// Legger bildet fra `source` (en fil valgt av brukeren) i bildemappa til manuset, og gir
+/// markdown som viser det: `![[kart.png]]`.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn add_image_file(state: State<'_, AppState>, path: String, source: String) -> Result<String> {
+    state.workspace()?.add_image_file(&path, std::path::Path::new(&source))
+}
+
+/// Som `add_image_file`, med bildet som rå bytes (dra og slipp fra Finder eller Utforsker)
+/// og manuset og filnavnet i overskriftene `path` og `name` (URL-kodet).
+/// Ikke med i `bindings.ts`, siden innholdet ikke er JSON.
+#[tauri::command(async)]
+pub fn add_image_data(state: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> Result<String> {
+    let tauri::ipc::InvokeBody::Raw(data) = request.body() else {
+        return Err("Bildet mangler innhold.".to_string());
+    };
+    let header = |name: &str| {
+        request.headers().get(name).and_then(|value| value.to_str().ok()).map(kerygma_core::vault::percent_decode)
+    };
+    let path = header("path").ok_or("Bildet mangler manus.")?;
+    let name = header("name").ok_or("Bildet mangler filnavn.")?;
+    state.workspace()?.add_image(&path, &name, data)
+}
+
+/// Legger bildene i bildemappa til manuset som ingen manus viser til lenger, i papirkurven.
+/// Kalles når manuset lukkes, så angre virker mens man skriver. Gir antallet som ble slettet.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn clean_images(state: State<'_, AppState>, path: String, content: String) -> Result<u32> {
+    Ok(state.workspace()?.clean_images(&path, &content)?.len() as u32)
+}
+
+/// URL-en til et bilde manuset viser til (som `kart.png` i `![[kart.png]]`), til
+/// miniatyrbildene i editoren. `None` når bildet ikke finnes.
+#[tauri::command]
+#[specta::specta]
+pub fn image_url(state: State<AppState>, path: String, target: String) -> Result<Option<String>> {
+    let workspace = state.workspace()?;
+    let resolver = workspace.vault.image_resolver(&path);
+    Ok(resolver(&target, !target.contains('/')))
 }
 
 /// Presentasjonen som eksporteres, eller `None` når den ikke er laget ennå.
@@ -318,6 +370,24 @@ pub fn set_settings(state: State<'_, AppState>, settings: Settings) -> Result<Ve
     // Meldinger om oversettelser som ikke er installert, vises når brukeren lagrer,
     // men ikke ved oppstart: en vault kan vise til oversettelser denne versjonen ikke har.
     Ok(state.configure_bible(&settings).unwrap_or_else(|error| vec![error]))
+}
+
+/// Mappa der brukeren kan legge flere oversettelser (`*.bin`). Lages hvis den ikke finnes.
+#[tauri::command]
+#[specta::specta]
+pub fn bibles_folder(app: AppHandle) -> Result<String> {
+    let dir = crate::user_bibles_dir(&app).ok_or("Fant ikke mappa til appen.")?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Kunne ikke lage «{}»: {e}", dir.display()))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// Laster oversettelsene på nytt, etter at brukeren har lagt til eller fjernet filer i mappa.
+/// Sender `bible-ready` når de er klare.
+#[tauri::command]
+#[specta::specta]
+pub fn reload_bibles(app: AppHandle, state: State<AppState>) {
+    state.set_bible(BibleState::Loading);
+    crate::load_bibles(&app);
 }
 
 #[derive(Serialize, specta::Type)]

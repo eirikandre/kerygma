@@ -269,7 +269,9 @@ async function buildPptx(slides: Block[][], style: Style, title: string): Promis
     // En slide med bare et bilde: bildet fyller sliden (hele bildet vises), som i slides.css.
     if (!hasText && images.length === 1) {
       const image = await loadImage(images[0].src);
-      if (image) addContained(slide, image, 0, 0, WIDTH, HEIGHT);
+      // Litt luft rundt, som `padding: 4%` (av bredden) for bildeslides i slides.css.
+      const air = WIDTH * 0.04;
+      if (image) addContained(slide, image, air, air, WIDTH - 2 * air, HEIGHT - 2 * air);
       continue;
     }
 

@@ -99,6 +99,13 @@ Herren er min hyrde, mig fattes intet. (Sal 23,1)
 }
 
 #[test]
+fn overskrifter_med_innrykk_kommer_med_uten_innrykket() {
+    // Som i CommonMark kan det stå opptil tre mellomrom foran en overskrift.
+    let input = "### overskrift 3\ntekst\n\n ## overskrift 2\ntekst\n   # overskrift 1\n    # kode, ikke overskrift";
+    assert_eq!(extract(input), "### overskrift 3\n\n---\n\n## overskrift 2\n\n---\n\n# overskrift 1\n");
+}
+
+#[test]
 fn flere_vers_i_samme_avsnitt_blir_separate_slides() {
     assert_eq!(
         extract("«Vers en» (Rom 3,23) og så «vers to» (Rom 6,23)."),

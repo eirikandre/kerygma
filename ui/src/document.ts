@@ -56,9 +56,26 @@ export class OpenDocument {
     }
   }
 
-  /** Lagrer fila som er åpen, og leser `path` inn i editoren. Gir innholdet. */
+  /**
+   * Legger bilder i bildemappa til fila som ingen manus viser til lenger, i papirkurven.
+   * Gjøres når fila lukkes (ikke ved hver lagring), så angre virker mens man skriver.
+   */
+  async cleanImages() {
+    if (!this.path) return;
+    try {
+      const removed = await api.cleanImages(this.path, this.editor.getValue());
+      if (removed > 0) {
+        notice(removed === 1 ? "Et bilde som ikke brukes lenger, er lagt i papirkurven." : `${removed} bilder som ikke brukes lenger, er lagt i papirkurven.`);
+      }
+    } catch (error) {
+      notice(errorMessage(error), { error: true });
+    }
+  }
+
+  /** Lagrer fila som er åpen, rydder bildene og leser `path` inn i editoren. Gir innholdet. */
   async open(path: string): Promise<string> {
     await this.save();
+    await this.cleanImages();
     const content = await api.readNote(path);
     this.path = path;
     this.saved = content;

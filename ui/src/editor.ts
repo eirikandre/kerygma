@@ -4,10 +4,67 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
-import { EditorSelection, EditorState, Prec, Transaction, type Extension } from "@codemirror/state";
-import { EditorView, drawSelection, keymap, placeholder } from "@codemirror/view";
+import { EditorSelection, EditorState, Prec, StateField, Transaction, type Extension } from "@codemirror/state";
+import { Decoration, type DecorationSet, EditorView, WidgetType, drawSelection, keymap, placeholder } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, exitEmptyQuote, toggleMark, toggleQuote } from "./format.ts";
+import { imageInsertion, imageOnLine, isImageFile } from "./images.ts";
+
+/** Gir URL-en til et bilde manuset viser til, eller null når det ikke finnes. */
+export type ImageUrl = (target: string) => Promise<string | null>;
+
+/** Et lite bilde under linja med `![[kart.png]]`, så man ser bildet mens man skriver. */
+class ImagePreview extends WidgetType {
+  constructor(
+    readonly target: string,
+    readonly url: ImageUrl,
+  ) {
+    super();
+  }
+
+  eq(other: ImagePreview): boolean {
+    return other.target === this.target;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-image-preview";
+    const img = document.createElement("img");
+    img.alt = this.target;
+    // Høyden er ukjent til bildet er lastet; da må editoren måle linjene på nytt.
+    img.addEventListener("load", () => view.requestMeasure());
+    void this.url(this.target).then((url) => {
+      if (url) img.src = url;
+      else wrap.classList.add("is-unresolved");
+    });
+    wrap.append(img);
+    return wrap;
+  }
+
+  ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+/** Miniatyrbilder under hver linje som bare er et bilde. */
+function imagePreviews(url: ImageUrl): Extension {
+  const build = (state: EditorState): DecorationSet => {
+    const widgets = [];
+    for (let n = 1; n <= state.doc.lines; n++) {
+      const line = state.doc.line(n);
+      const target = imageOnLine(line.text);
+      if (target) {
+        widgets.push(Decoration.widget({ widget: new ImagePreview(target, url), block: true, side: 1 }).range(line.to));
+      }
+    }
+    return Decoration.set(widgets);
+  };
+  return StateField.define<DecorationSet>({
+    create: build,
+    update: (decorations, tr) => (tr.docChanged ? build(tr.state) : decorations),
+    provide: (field) => EditorView.decorations.from(field),
+  });
+}
 
 /** Markdown med fargene fra styles.css, så det virker i både lyst og mørkt tema. */
 const highlightStyle = HighlightStyle.define([
@@ -40,6 +97,12 @@ export class Editor {
   private onChange: () => void;
   private onCursor: () => void;
 
+  /** Slår opp bildene i miniatyrene. Settes av appen, med fila som er åpen. */
+  imageUrl: ImageUrl = async () => null;
+
+  /** Bildefiler som slippes i editoren (fra Finder eller Utforsker), med posisjonen de slippes på. */
+  onDropImages: (files: File[], pos: number) => void = () => {};
+
   private newState(doc: string): EditorState {
     const onChange = this.onChange;
     const onCursor = this.onCursor;
@@ -55,6 +118,23 @@ export class Editor {
       selectionTheme,
       EditorView.lineWrapping,
       placeholder("Skriv her …"),
+      imagePreviews((target) => this.imageUrl(target)),
+      EditorView.domEventHandlers({
+        dragover: (event) => {
+          if (!event.dataTransfer?.types.includes("Files")) return false;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          return true;
+        },
+        drop: (event, view) => {
+          const files = [...(event.dataTransfer?.files ?? [])].filter((file) => isImageFile(file.name));
+          if (files.length === 0) return false;
+          event.preventDefault();
+          const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head;
+          this.onDropImages(files, pos);
+          return true;
+        },
+      }),
       keymap.of([
         { key: "Mod-b", run: (view) => (toggleMark(view, BOLD), true) },
         { key: "Mod-i", run: (view) => (toggleMark(view, ITALIC), true) },
@@ -124,6 +204,20 @@ export class Editor {
     const fromLine = state.doc.lineAt(from);
     const toLine = state.doc.lineAt(to);
     return { before: fromLine.text.slice(0, from - fromLine.from), after: toLine.text.slice(to - toLine.from) };
+  }
+
+  /** Setter inn bildene (markdown fra `addImage…`) ved `pos`, eller ved markøren, som egne avsnitt. */
+  insertImages(markdowns: string[], pos = this.view.state.selection.main.head) {
+    if (markdowns.length === 0) return;
+    const line = this.view.state.doc.lineAt(pos);
+    const { text, cursor } = imageInsertion(line.text, pos - line.from, markdowns);
+    this.view.dispatch({
+      changes: { from: pos, insert: text },
+      selection: { anchor: pos + cursor },
+      scrollIntoView: true,
+      userEvent: "input",
+    });
+    this.view.focus();
   }
 
   replaceSelection(text: string) {

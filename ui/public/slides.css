@@ -87,12 +87,12 @@
   opacity: 0.85;
 }
 
-/* Bilder: slider med bare et bilde fyller sliden, og hele bildet vises
-   enten det er stående eller liggende */
+/* Bilder: slider med bare et bilde fyller sliden med litt luft rundt, og hele bildet
+   vises enten det er stående eller liggende */
 .slides-container .reveal .slides section:has(> p:only-child > img:only-child, > p:only-child > .image-embed:only-child) {
   box-sizing: border-box;
   height: 100%;
-  padding: 0;
+  padding: 4%;
 }
 
 .slides-container .reveal .slides section > p:only-child:has(> img:only-child, > .image-embed:only-child),

@@ -11,7 +11,8 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     // Vinduet med slidene på den andre skjermen i talervisningen er en egen side.
-    rollupOptions: { input: { main: "index.html", audience: "audience.html" } },
+    // Brukerveiledningen (Hjelp → Brukerveiledning) er også et eget vindu.
+    rollupOptions: { input: { main: "index.html", audience: "audience.html", help: "help.html" } },
   },
   // `npm test`: testene i test/, med en enkel DOM (happy-dom).
   test: { environment: "happy-dom", include: ["test/**/*.test.ts"] },

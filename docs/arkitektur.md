@@ -131,7 +131,7 @@ Med featuren `specta` får typene grensesnittet bruker (`Tree`, `Settings`, `Cre
 
 ### `ui`
 
-To sider bygges av Vite: `index.html` (hovedvinduet) og `audience.html` (slidene på den andre skjermen i talervisningen).
+Tre sider bygges av Vite: `index.html` (hovedvinduet), `audience.html` (slidene på den andre skjermen i talervisningen) og `help.html` (brukerveiledningen).
 
 | Fil | Ansvar |
 |---|---|
@@ -146,6 +146,8 @@ To sider bygges av Vite: `index.html` (hovedvinduet) og `audience.html` (slidene
 | `presenter.ts`, `audience.ts`, `presenterEvents.ts` | Talervisningen: manuset med merket tekst i hovedvinduet, slidene i et eget `WebviewWindow`. Vinduene snakker med Tauri-hendelser (`presenter:ready/init/slide/key`). |
 | `export.ts` (500) | PDF (viser hver slide og ber Rust lage en PDF-side), PowerPoint (tolker HTML-en til blokker og bygger med pptxgenjs) og HTML (én fil med alt bygget inn). |
 | `verseModal.ts`, `importReport.ts`, `settings.ts`, `dialogs.ts` | Vinduene og meldingene. |
+| `help.ts` (`help.html`) | Hjelpevinduet (Hjelp → Brukerveiledning): `docs/Brukerveiledning.md`, bygget inn i appen og gjort om til HTML av `help_html` (`markdown::render_document`, med id-er på overskriftene). Testen `brukerveiledning.rs` sjekker at lenkene i den virker. |
+| `images.ts` | Bilder i manus: dra og slipp, innsetting og gjenkjenning av bildelinjer (miniatyrene i editoren). |
 | `sanitize.ts` | Fjerner skript og hendelser fra HTML før `innerHTML`. Viktig, siden CSP er av og skript i vinduet kan kalle alle kommandoene. |
 | `appearance.ts` | Skrift, størrelse og tema i editoren (lagret i `app.json`). |
 
@@ -181,7 +183,7 @@ Presentasjonen er en vanlig markdown-fil ved siden av manuset. Den vises ikke i 
 - **Én skjerm:** `slides(path)` → `markdown::slides` (HTML per slide) → `present.ts` bygger samme DOM som Obsidian og starter reveal.js i fullskjerm.
 - **To skjermer (eller Alt-klikk):** `presenter(path, content)` lager slidene *fra manuset* med `extract_slides` og merker hvor hver slide står (`presenter.rs`). Hovedvinduet viser manuset som HTML og finner merkene (de private tegnene) for å markere teksten. `audience.html` åpnes i et nytt vindu, ber om slidene (`ready` → `init`), og hovedvinduet styrer hvilken som vises. Taster i slidevinduet sendes tilbake.
 
-Merk at én skjerm viser *presentasjonsfila* (som kan være redigert for hånd), mens talervisningen lager slidene *fra manuset* på nytt.
+Merk at én skjerm viser *presentasjonsfila*, mens talervisningen lager slidene *fra manuset* på nytt. Presentasjonsfila redigeres ikke for hånd: den vises bare i lesevisning, og pennen, «Sett inn bibelvers» og «Sett inn bilde» åpner manuset i stedet (`editManuscriptInstead` i `main.ts`).
 
 ### Eksport
 
@@ -237,8 +239,8 @@ Det meste lages nå fra Rust i `ui/src/bindings.ts`, og `tsc` gir feil når en k
 ## Avhengigheter og bygging
 
 - Ingen avhengigheter til andre repoer ved bygging. `bibler/*.bin` pakkes med appen som ressurser (`tauri.conf.json`), og leses fra `bibler/` under utvikling.
-- Repoet er offentlig, så bare oversettelser i det fri er i git: Bibelen 1930 (`nb30`, standard) og KJV. Andre oversettelser lages i bible-repoet og legges i `bibler/`; alle som ligger der ved bygging, blir med i appen, i boknavnene, i Word-importen og i oppslag på tvers av oversettelser. Oversettelser som ikke er installert, hoppes over (`Bibel::configured`), og meldingen om det vises bare når brukeren lagrer innstillingene.
-- `book_names.rs`: boknavnene fra `bibler/*.bin` lages av `crates/kerygma-core/build.rs`; vanlige norske boknavn og forkortelser som ingen oversettelse bruker («1. Mosebok», «Åp»), står i `NORWEGIAN_NAMES`.
+- Repoet er offentlig, så bare oversettelser i det fri er i git: Bibelen 1930 (`nb30`, standard) og KJV. Andre oversettelser lages i bible-repoet og legges inn etter installasjonen, i mappa for oversettelser (`bibler` i datamappa til appen, se `bibler/README.md`), eller i `bibler/` før bygging. Alle som er lastet, blir med i oppslag, i boknavnene, i Word-importen og i oppslag på tvers av oversettelser. Oversettelser som ikke er installert, hoppes over (`Bibel::configured`), og meldingen om det vises bare når brukeren lagrer innstillingene.
+- Boknavnene manus gjenkjennes med: de fra `bibler/*.bin` bygges inn av `crates/kerygma-core/build.rs`, de fra oversettelser som lastes mens appen kjører, legges til av `reference::add_book_names` (kalt av `Bibel::from_files`), og vanlige norske boknavn og forkortelser som ingen oversettelse bruker («1. Mosebok», «Åp»), står i `book_names::NORWEGIAN_NAMES`.
 - `specta`, `specta-typescript` og `tauri-specta` er i beta og låst med `=` i `src-tauri/Cargo.toml` og `crates/kerygma-core/Cargo.toml`. Oppgrader dem samtidig.
 - Windows-pakken er ikke bygget, og PDF-eksporten virker bare på macOS.
 

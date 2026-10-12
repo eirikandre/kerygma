@@ -16,7 +16,9 @@ use regex::Regex;
 
 use crate::reference::{find_bible_references, reference_locus};
 
-static HEADING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^#{1,6}\s").unwrap());
+/// En overskrift: `#` til `######` og mellomrom, med opptil tre mellomrom foran, som i
+/// CommonMark (og lesevisningen). Innrykket blir ikke med på sliden.
+static HEADING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^ {0,3}#{1,6}\s").unwrap());
 static FENCE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(```|~~~)").unwrap());
 static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(?:[-*+]|[0-9]+[.)])\s+").unwrap());
 static BLOCKQUOTE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*>").unwrap());
@@ -258,7 +260,7 @@ fn parse(markdown: &str) -> (String, Vec<Item>) {
             flush(&mut block, &mut items);
             let offset = numbered[i].0;
             let end = offset + line.trim_end().len();
-            items.push(Item::Heading(line.to_string(), (offset + m.end()).min(end)..end));
+            items.push(Item::Heading(line.trim_start().to_string(), (offset + m.end()).min(end)..end));
             i += 1;
             continue;
         }

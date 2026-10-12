@@ -320,19 +320,11 @@ button:hover {
   border-bottom: 1px solid var(--warning-border);
   font-size: 13px;
 }
-#presentation-banner[hidden],
-#open-manuscript[hidden] {
+#presentation-banner[hidden] {
   display: none;
 }
 #presentation-banner-text {
   flex: 1;
-}
-#open-manuscript {
-  flex: none;
-  font-size: 12px;
-  color: inherit;
-  background: transparent;
-  border-color: var(--warning-border);
 }
 .tooltip {
   position: fixed;
@@ -511,8 +503,32 @@ button:hover {
   background: none;
   padding: 0;
 }
+/* Bilder i manus er små; i presentasjonen fyller de sliden (slides.css). */
 .markdown img {
-  max-width: 100%;
+  max-width: min(100%, 320px);
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+/* Miniatyrbildet under en linje med ![[bilde.png]] i editoren. */
+.cm-image-preview {
+  padding: 4px 0 8px;
+}
+.cm-image-preview img {
+  display: block;
+  max-width: min(100%, 240px);
+  max-height: 160px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.cm-image-preview.is-unresolved img {
+  display: none;
+}
+.cm-image-preview.is-unresolved::after {
+  content: "Fant ikke bildet";
+  color: var(--text-faint);
+  font-style: italic;
+  font-size: 0.85em;
 }
 .markdown a {
   color: var(--accent);
@@ -946,4 +962,38 @@ button.primary:hover {
 #tree.drop-root {
   background: var(--bg-active);
   box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* Hjelpevinduet med brukerveiledningen */
+body.help {
+  margin: 0;
+  overflow: auto;
+  height: 100%;
+}
+body.help .markdown {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 32px 64px;
+}
+body.help .markdown h2 {
+  margin-top: 2em;
+}
+body.help .markdown .anchor {
+  display: none;
+}
+
+/* Bibeloversettelser i innstillingene */
+.setting-value {
+  flex: none;
+  color: var(--text-muted, var(--text));
+}
+.setting-path {
+  margin-top: 4px;
+  user-select: text;
+  word-break: break-all;
+}
+.setting-buttons {
+  display: flex;
+  flex: none;
+  gap: 6px;
 }

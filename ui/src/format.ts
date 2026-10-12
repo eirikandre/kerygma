@@ -99,7 +99,8 @@ export function toggleMark(view: EditorView, mark: Mark) {
   view.focus();
 }
 
-const HEADING = /^(#{1,6})[ \t]+/;
+// Opptil tre mellomrom foran, som i CommonMark. Å velge et nivå fjerner innrykket.
+const HEADING = /^ {0,3}(#{1,6})[ \t]+/;
 
 /** Overskriftsnivået på linja markøren står på (0: vanlig tekst). */
 export function headingLevel(state: EditorState): number {

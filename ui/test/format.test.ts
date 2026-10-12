@@ -63,6 +63,13 @@ describe("overskrifter", () => {
     expect(v.state.doc.toString()).toBe("Tittel");
   });
 
+  it("overskrifter med innrykk gjenkjennes, og innrykket fjernes når nivået endres", () => {
+    const v = view(" ## Tit|tel");
+    expect(headingLevel(v.state)).toBe(2);
+    setHeading(v, 1);
+    expect(v.state.doc.toString()).toBe("# Tittel");
+  });
+
   it("tomme linjer i markeringen får ikke overskrift", () => {
     const v = view("[En\n\nTo]");
     setHeading(v, 2);

@@ -6,6 +6,7 @@ description = "Logikken i Kerygma: presentasjoner, bibelreferanser, bibeloppslag
 
 [dependencies]
 bibel-core = { path = "../bibel-core" }
+bibel-format = { path = "../bibel-format" }
 regex = "1"
 fancy-regex = "0.14"
 serde = { version = "1.0.229", features = ["derive"] }

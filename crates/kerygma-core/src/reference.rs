@@ -6,7 +6,7 @@
 //! Sifre skrives `[0-9]` (bare ASCII), ikke `\d`, som i Rust også godtar andre sifre.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, RwLock};
 
 use regex::Regex;
 
@@ -38,6 +38,31 @@ static KNOWN_NAMES: LazyLock<HashSet<String>> = LazyLock::new(|| all_names().map
 /// Senere navn med samme nøkkel vinner, så navnene fra oversettelsene går foran.
 static BOOK_ID_BY_KEY: LazyLock<HashMap<String, &'static str>> =
     LazyLock::new(|| all_names().map(|(name, id)| (book_key(name), *id)).collect());
+
+/// Boknavn fra oversettelsene som er lastet mens appen kjører ([`add_book_names`]), i
+/// tillegg til dem som er bygget inn. Slik gjenkjennes også navnene til oversettelser som
+/// er lagt til etter at appen ble bygget (i mappa for oversettelser).
+#[derive(Default)]
+struct LoadedNames {
+    known: HashSet<String>,
+    by_key: HashMap<String, String>,
+}
+
+static LOADED: LazyLock<RwLock<LoadedNames>> = LazyLock::new(RwLock::default);
+
+/// Legger til boknavn og forkortelser (navn, bok-id) fra en oversettelse som er lastet.
+/// Navnene som er bygget inn, går foran ved like nøkler. Kalles av `Bibel::from_files`.
+pub fn add_book_names<'a>(names: impl IntoIterator<Item = (&'a str, &'a str)>) {
+    let mut loaded = LOADED.write().unwrap_or_else(|poisoned| poisoned.into_inner());
+    for (name, id) in names {
+        loaded.known.insert(normalize(name));
+        loaded.by_key.entry(book_key(name)).or_insert_with(|| id.to_string());
+    }
+}
+
+fn loaded() -> std::sync::RwLockReadGuard<'static, LoadedNames> {
+    LOADED.read().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 /// Stammer av bøkenes norske navn, for referanser skrevet for hånd. En bok
 /// matcher hvis navnet starter med stammen ("Johannesevangeliet") eller er en
@@ -79,7 +104,7 @@ static PART_SEPARATOR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s*;\s*")
 
 pub fn is_book_name(name: &str) -> bool {
     let normalized = normalize(name);
-    if KNOWN_NAMES.contains(&normalized) {
+    if KNOWN_NAMES.contains(&normalized) || loaded().known.contains(&normalized) {
         return true;
     }
     if !HANDWRITTEN_BOOK.is_match(name.trim()) {
@@ -114,7 +139,8 @@ pub fn to_lookup(reference: &str) -> Option<String> {
     if book.is_empty() {
         return None;
     }
-    let id = BOOK_ID_BY_KEY.get(&book_key(book))?;
+    let key = book_key(book);
+    let id = BOOK_ID_BY_KEY.get(&key).map(|id| id.to_string()).or_else(|| loaded().by_key.get(&key).cloned())?;
     let locus = reference_locus(reference);
     SIMPLE_LOCUS.is_match(&locus).then(|| format!("{id}{locus}"))
 }

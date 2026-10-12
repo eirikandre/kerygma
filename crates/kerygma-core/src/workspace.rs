@@ -12,7 +12,7 @@ use crate::bible::Bibel;
 use crate::markdown;
 use crate::presentation::{presentation_content, presentation_paths_for, presentation_source, slide_options, PresentationPaths};
 use crate::settings::Settings;
-use crate::vault::{write_atomic, Tree, Vault};
+use crate::vault::{image_folder, is_image, write_atomic, Tree, Vault};
 
 /// Mappa med innstillingene i vaulten. Skjult, så den ikke vises i treet.
 pub const SETTINGS_DIR: &str = ".kerygma";
@@ -121,6 +121,12 @@ impl Workspace {
 
     pub fn move_to(&self, path: &str, folder: &str) -> Result<String, String> {
         self.vault.move_to(path, folder, &self.settings.suffix)
+    }
+
+    /// Legger fila eller mappa i papirkurven; et manus tar med seg presentasjonene og
+    /// bildemappa si. Gir stiene som ble slettet.
+    pub fn delete(&self, path: &str) -> Result<Vec<String>, String> {
+        self.vault.delete(path, &self.settings.suffix)
     }
 
     pub fn search(&self, query: &str) -> crate::search::SearchResponse {
@@ -235,6 +241,86 @@ impl Workspace {
         self.vault.exists(&paths.presentation).then_some(paths.presentation)
     }
 
+    /// Manuset bildene i fila hører til: fila selv, eller manuset en presentasjon er laget fra.
+    fn images_owner(&self, path: &str, content: Option<&str>) -> String {
+        self.paths(path, content).0.manuscript
+    }
+
+    /// Legger et bilde i bildemappa til manuset (mappa med samme navn, ved siden av det)
+    /// og gir markdown som viser det: `![[kart.png]]`. Filnavnet gjøres unikt i hele
+    /// vaulten, så lenken virker også etter at manuset har fått nytt navn eller er flyttet.
+    pub fn add_image(&self, note: &str, file_name: &str, data: &[u8]) -> Result<String, String> {
+        let name = file_name.rsplit(['/', '\\']).next().unwrap_or(file_name).trim().trim_start_matches('.');
+        if !is_image(name) {
+            return Err(format!("«{file_name}» er ikke et bilde (png, jpg, gif, svg, webp, bmp eller avif)."));
+        }
+        let owner = self.images_owner(note, None);
+        let folder = image_folder(&owner).ok_or_else(|| format!("«{note}» er ikke et manus."))?;
+        let dir = self.vault.resolve(&folder)?;
+        std::fs::create_dir_all(&dir).map_err(|e| format!("Kunne ikke lage mappa «{folder}»: {e}"))?;
+        let name = self.vault.unique_file_name(name);
+        write_atomic(&dir.join(&name), data).map_err(|e| format!("Kunne ikke lagre «{name}»: {e}"))?;
+        Ok(format!("![[{name}]]"))
+    }
+
+    /// Som [`Workspace::add_image`], med bildet lest fra en fil på disken (valgt av brukeren).
+    pub fn add_image_file(&self, note: &str, source: &Path) -> Result<String, String> {
+        let data = std::fs::read(source).map_err(|e| format!("Kunne ikke lese «{}»: {e}", source.display()))?;
+        let name = source.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        self.add_image(note, &name, &data)
+    }
+
+    /// Bildene i bildemappa til manuset som ingen manus i vaulten viser til lenger. `content`
+    /// er innholdet i editoren for `note`, så ulagrede endringer regnes med.
+    pub fn unused_images(&self, note: &str, content: &str) -> Vec<PathBuf> {
+        let owner = self.images_owner(note, Some(content));
+        let Some(dir) = self.vault.image_folder_of(&owner) else { return vec![] };
+        let Ok(entries) = std::fs::read_dir(&dir) else { return vec![] };
+        let images: Vec<PathBuf> = entries
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| path.is_file() && is_image(&path.to_string_lossy()))
+            .collect();
+        if images.is_empty() {
+            return vec![];
+        }
+        // Et bilde kan være brukt i et annet manus også (eller i presentasjonen); da blir det.
+        let mut used: std::collections::HashSet<String> = image_references(content).collect();
+        for other in self.vault.notes().into_iter().filter(|other| other != note) {
+            if let Ok(text) = self.vault.read_note(&other) {
+                used.extend(image_references(&text));
+            }
+        }
+        images
+            .into_iter()
+            .filter(|path| {
+                let name = path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+                !used.contains(&name)
+            })
+            .collect()
+    }
+
+    /// Legger bildene ingen viser til lenger, i papirkurven (se [`Workspace::unused_images`]),
+    /// og fjerner bildemappa når den er tom. Gir stiene til bildene som ble slettet.
+    pub fn clean_images(&self, note: &str, content: &str) -> Result<Vec<String>, String> {
+        let unused = self.unused_images(note, content);
+        let mut removed = Vec::new();
+        for path in &unused {
+            trash::delete(path).map_err(|e| format!("Kunne ikke slette «{}»: {e}", path.display()))?;
+            removed.extend(self.vault.relative(path));
+        }
+        let owner = self.images_owner(note, Some(content));
+        if let Some(dir) = self.vault.image_folder_of(&owner) {
+            let empty = std::fs::read_dir(&dir).is_ok_and(|mut entries| {
+                entries.all(|entry| entry.is_ok_and(|e| e.file_name().to_string_lossy().starts_with('.')))
+            });
+            if empty {
+                let _ = std::fs::remove_dir_all(&dir);
+            }
+        }
+        Ok(removed)
+    }
+
     /// Hvor hver Word-fil havner: i mappa brukeren valgte i treet (`folder_chosen`), ellers i
     /// «Mappe for importerte Word-manus», eller i mappa til fila som er åpen (`current_folder`).
     pub fn import_targets(&self, files: &[String], current_folder: &str, folder_chosen: bool) -> Vec<ImportTarget> {
@@ -293,6 +379,19 @@ impl Workspace {
             })
             .collect()
     }
+}
+
+/// Filnavnene (med små bokstaver) til bildene teksten viser til: `![[kart.png]]`,
+/// `![[bilder/kart.png|300]]` og `![tekst](bilder/kart.png)`.
+fn image_references(text: &str) -> impl Iterator<Item = String> + '_ {
+    static EMBED: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"!\[\[([^\]|#\n]+)[^\]\n]*\]\]|!\[[^\]\n]*\]\(<?([^)>\n]+?)>?(?:\s+[\x22'][^)]*)?\)").unwrap()
+    });
+    EMBED.captures_iter(text).filter_map(|caps| {
+        let target = caps.get(1).or_else(|| caps.get(2))?.as_str().trim();
+        let target = crate::vault::percent_decode(target);
+        Some(target.rsplit('/').next().unwrap_or(&target).to_lowercase())
+    })
 }
 
 fn settings_path(root: &Path) -> PathBuf {
@@ -414,6 +513,43 @@ mod tests {
         assert_eq!(workspace.presentation_path("Påske.md", "# Påske\n"), None);
         workspace.create_presentation("Påske.md", None, false, None).unwrap();
         assert_eq!(workspace.presentation_path("Påske.md", "# Påske\n").as_deref(), Some("Påske - presentasjon.md"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn bilder_legges_i_mappa_til_manuset_med_unikt_navn() {
+        let (dir, workspace) = temp_workspace("bilder");
+        write(&dir, "Prekener/Påske.md", "# Påske\n");
+        assert_eq!(workspace.add_image("Prekener/Påske.md", "/Users/x/Kart.PNG", b"png").unwrap(), "![[Kart.PNG]]");
+        assert_eq!(workspace.add_image("Prekener/Påske.md", "kart.png", b"png").unwrap(), "![[kart 2.png]]");
+        assert!(dir.join("Prekener/Påske/Kart.PNG").is_file());
+        assert!(dir.join("Prekener/Påske/kart 2.png").is_file());
+        assert!(workspace.add_image("Prekener/Påske.md", "notat.txt", b"tekst").is_err());
+
+        // Fra presentasjonen havner bildet hos manuset.
+        write(&dir, "Prekener/Lysbilder.md", "<!-- kerygma-presentasjon: Påske.md -->\n");
+        assert_eq!(workspace.add_image("Prekener/Lysbilder.md", "kors.jpg", b"jpg").unwrap(), "![[kors.jpg]]");
+        assert!(dir.join("Prekener/Påske/kors.jpg").is_file());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn bilder_ingen_viser_til_skal_slettes() {
+        let (dir, workspace) = temp_workspace("ubrukte");
+        write(&dir, "Påske.md", "");
+        for name in ["a.png", "b.png", "c.png", "d.png"] {
+            workspace.add_image("Påske.md", name, b"png").unwrap();
+        }
+        // c.png brukes i et annet manus, d.png med en vanlig markdown-lenke.
+        write(&dir, "Annet.md", "Se ![[c.png|300]]");
+        let content = "# Påske\n\n![[a.png]]\n\n![kart](Påske/d.png)\n";
+        let mut unused: Vec<String> = workspace
+            .unused_images("Påske.md", content)
+            .iter()
+            .map(|path| path.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        unused.sort();
+        assert_eq!(unused, ["b.png"]);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

@@ -1,5 +1,6 @@
 // Innstillingene: for vaulten (`Settings`, i .kerygma/settings.json) og for appen (utseendet, i app.json).
-import { api, errorMessage, type Settings, type Theme } from "./api.ts";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { api, type BibleStatus, errorMessage, events, type Settings, type Theme } from "./api.ts";
 import { DEFAULT_SETTINGS } from "./bindings.ts";
 import { FONTS, MAX_SIZE, MIN_SIZE, THEMES, getAppearance, setAppearance } from "./appearance.ts";
 import { notice, openModal } from "./dialogs.ts";
@@ -152,6 +153,13 @@ export async function openSettings() {
   );
   slideSettings(modal.el, settings, save);
 
+  section(
+    modal.el,
+    "Bibeloversettelser",
+    "Gjelder appen. Flere oversettelser (.bin-filer) kan legges i mappa under; de beholdes når Kerygma oppdateres.",
+  );
+  bibleSettings(modal.el);
+
   const hotkeys = document.createElement("p");
   hotkeys.className = "setting-desc";
   hotkeys.textContent =
@@ -173,6 +181,68 @@ export async function openSettings() {
   close.addEventListener("click", () => modal.close());
   footer.append(saved, close);
   modal.el.append(footer);
+}
+
+/** Oversettelsene som er installert, og mappa der brukeren kan legge til flere. */
+function bibleSettings(parent: HTMLElement) {
+  const installed = document.createElement("span");
+  installed.className = "setting-value";
+  const show = (status: BibleStatus) => {
+    installed.textContent =
+      status.kind === "ready" ? status.ids.join(", ") : status.kind === "loading" ? "Lastes …" : status.message;
+  };
+  void api.bibleStatus().then(show);
+  parent.append(settingRow("Installert", "Oversettelsene appen har nå.", installed));
+
+  const folder = document.createElement("div");
+  folder.className = "setting-desc setting-path";
+  const buttons = document.createElement("div");
+  buttons.className = "setting-buttons";
+  const reveal = document.createElement("button");
+  reveal.type = "button";
+  reveal.textContent = "Vis mappa";
+  const reload = document.createElement("button");
+  reload.type = "button";
+  reload.textContent = "Last inn på nytt";
+  buttons.append(reveal, reload);
+
+  let path = "";
+  void api
+    .biblesFolder()
+    .then((dir) => {
+      path = dir;
+      folder.textContent = dir;
+    })
+    .catch((error) => {
+      folder.textContent = errorMessage(error);
+    });
+  reveal.addEventListener("click", () => {
+    if (path) void revealItemInDir(path).catch((error) => notice(errorMessage(error), { error: true }));
+  });
+  reload.addEventListener("click", () => {
+    void (async () => {
+      installed.textContent = "Lastes …";
+      const done = await events.bibleReady.once(async () => {
+        const status = await api.bibleStatus();
+        show(status);
+        if (status.kind === "ready") notice(`Oversettelsene er lastet: ${status.ids.join(", ")}`);
+      });
+      try {
+        await api.reloadBibles();
+      } catch (error) {
+        done();
+        notice(errorMessage(error), { error: true });
+      }
+    })();
+  });
+
+  const row = settingRow(
+    "Flere oversettelser",
+    "Legg .bin-filene i denne mappa, og trykk «Last inn på nytt». Har mappa en oversettelse appen også har, brukes den fra mappa.",
+    buttons,
+  );
+  row.querySelector(".setting-info")!.append(folder);
+  parent.append(row);
 }
 
 function section(parent: HTMLElement, title: string, desc: string) {

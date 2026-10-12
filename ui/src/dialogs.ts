@@ -22,8 +22,10 @@ export function confirmOverwrite(path: string): Promise<boolean> {
   });
 }
 
-export function confirmDelete(name: string): Promise<boolean> {
-  return ask(`Vil du flytte "${name}" til papirkurven?`, {
+/** `note`: et manus, som tar med seg presentasjonen og bildene sine. */
+export function confirmDelete(name: string, note = false): Promise<boolean> {
+  const extra = note ? " Presentasjonen og bildene til manuset slettes også." : "";
+  return ask(`Vil du flytte "${name}" til papirkurven?${extra}`, {
     title: "Kerygma",
     kind: "warning",
     okLabel: "Slett",

@@ -6,6 +6,11 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
+	/**
+	 *  Brukerveiledningen som HTML, til hjelpevinduet. Bygget inn i appen fra
+	 *  `docs/Brukerveiledning.md`, så den alltid hører til versjonen som kjører.
+	 */
+	helpHtml: () => __TAURI_INVOKE<string>("help_html"),
 	/**  Mappa som sist ble åpnet, hvis den fortsatt finnes. */
 	lastVault: () => __TAURI_INVOKE<string | null>("last_vault"),
 	/**  Skrift og størrelse, lagret i `app.json`. */
@@ -19,7 +24,11 @@ export const commands = {
 	createFolder: (parent: string, name: string) => __TAURI_INVOKE<string>("create_folder", { parent, name }),
 	rename: (path: string, newName: string) => __TAURI_INVOKE<string>("rename", { path, newName }),
 	moveTo: (path: string, folder: string) => __TAURI_INVOKE<string>("move_to", { path, folder }),
-	delete: (path: string) => __TAURI_INVOKE<null>("delete", { path }),
+	/**
+	 *  Legger fila eller mappa i papirkurven; et manus tar med seg presentasjonene og bildene sine.
+	 *  Gir stiene som ble slettet.
+	 */
+	delete: (path: string) => __TAURI_INVOKE<string[]>("delete", { path }),
 	/**  Søk i navn og innhold i alle manusene. */
 	search: (query: string) => __TAURI_INVOKE<SearchResponse>("search", { query }),
 	/**  HTML til lesevisningen, med bildene løst opp. */
@@ -33,6 +42,21 @@ export const commands = {
 	presenter: (path: string, content: string | null) => __TAURI_INVOKE<Presenter>("presenter", { path, content }),
 	/**  Presentasjonen som eksporteres, eller `None` når den ikke er laget ennå. */
 	presentationPath: (path: string, content: string) => __TAURI_INVOKE<string | null>("presentation_path", { path, content }),
+	/**
+	 *  Legger bildet fra `source` (en fil valgt av brukeren) i bildemappa til manuset, og gir
+	 *  markdown som viser det: `![[kart.png]]`.
+	 */
+	addImageFile: (path: string, source: string) => __TAURI_INVOKE<string>("add_image_file", { path, source }),
+	/**
+	 *  Legger bildene i bildemappa til manuset som ingen manus viser til lenger, i papirkurven.
+	 *  Kalles når manuset lukkes, så angre virker mens man skriver. Gir antallet som ble slettet.
+	 */
+	cleanImages: (path: string, content: string) => __TAURI_INVOKE<number>("clean_images", { path, content }),
+	/**
+	 *  URL-en til et bilde manuset viser til (som `kart.png` i `![[kart.png]]`), til
+	 *  miniatyrbildene i editoren. `None` når bildet ikke finnes.
+	 */
+	imageUrl: (path: string, target: string) => __TAURI_INVOKE<string | null>("image_url", { path, target }),
 	/**  Starter en PDF-eksport og gir id-en den bruker i `pdf_page` og `pdf_save`. */
 	pdfBegin: () => __TAURI_INVOKE<number>("pdf_begin"),
 	/**  Lager en PDF-side av `rect` i vinduet (sliden som vises) og legger den til eksporten. */
@@ -51,6 +75,13 @@ export const commands = {
 	 */
 	setSettings: (settings: Settings) => __TAURI_INVOKE<string[]>("set_settings", { settings }),
 	bibleStatus: () => __TAURI_INVOKE<BibleStatus>("bible_status"),
+	/**  Mappa der brukeren kan legge flere oversettelser (`*.bin`). Lages hvis den ikke finnes. */
+	biblesFolder: () => __TAURI_INVOKE<string>("bibles_folder"),
+	/**
+	 *  Laster oversettelsene på nytt, etter at brukeren har lagt til eller fjernet filer i mappa.
+	 *  Sender `bible-ready` når de er klare.
+	 */
+	reloadBibles: () => __TAURI_INVOKE<void>("reload_bibles"),
 	/**  Hvor hver Word-fil havner. Grensesnittet spør før det overskriver. */
 	importTargets: (files: string[], currentFolder: string, folderChosen: boolean) => __TAURI_INVOKE<ImportTarget[]>("import_targets", { files, currentFolder, folderChosen }),
 	/**  Gjør Word-filene om til markdown. Kjøres utenfor hovedtråden, siden søk i Bibelen kan ta litt tid. */

@@ -16,6 +16,7 @@ vi.mock("../src/api.ts", async (original) => ({
       disk.set(path, content);
       return null;
     },
+    cleanImages: async () => 0,
   },
 }));
 vi.mock("../src/dialogs.ts", () => ({ notice: (message: string) => notices.push(message) }));

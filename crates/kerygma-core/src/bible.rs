@@ -26,6 +26,33 @@ pub struct Bibel {
 }
 
 impl Bibel {
+    /// Leser `*.bin` i mappene, i rekkefølge. Finnes samme oversettelse (id) i flere mapper,
+    /// brukes den fra den siste, så oversettelser brukeren har lagt inn selv, går foran dem
+    /// appen kom med. Mapper som ikke finnes, hoppes over.
+    pub fn load_dirs(dirs: &[&Path]) -> Result<Bibel, String> {
+        let mut by_id: Vec<(String, String, Vec<u8>)> = Vec::new();
+        for dir in dirs {
+            let Ok(entries) = std::fs::read_dir(dir) else { continue };
+            let mut paths: Vec<_> = entries
+                .filter_map(|entry| entry.ok().map(|e| e.path()))
+                .filter(|path| path.extension().is_some_and(|ext| ext == "bin"))
+                .collect();
+            paths.sort();
+            for path in paths {
+                let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                let data = std::fs::read(&path).map_err(|e| format!("{name}: {e}"))?;
+                let id = bibel_format::Bible::parse(&data)
+                    .map_err(|e| format!("{name}: ugyldig datasett: {e}"))?
+                    .id()
+                    .to_lowercase();
+                by_id.retain(|(other, _, _)| *other != id);
+                by_id.push((id, name, data));
+            }
+        }
+        by_id.sort_by(|a, b| a.0.cmp(&b.0));
+        Bibel::from_files(by_id.into_iter().map(|(_, name, data)| (name, data)).collect())
+    }
+
     /// Leser alle `*.bin` i mappa, sortert etter navn.
     pub fn load_dir(dir: &Path) -> Result<Bibel, String> {
         let mut paths: Vec<_> = std::fs::read_dir(dir)
@@ -55,6 +82,10 @@ impl Bibel {
             leaked.push(data);
         }
         let registry = Registry::parse(&leaked).map_err(|e| format!("ugyldig datasett: {e}"))?;
+        // Boknavnene gjenkjennes i manus også når oversettelsen ikke fantes da appen ble bygget.
+        crate::reference::add_book_names(
+            registry.iter().flat_map(|bible| bible.books().flat_map(|book| [(book.name, book.osis_id), (book.abbrev, book.osis_id)])),
+        );
         Ok(Bibel { files: leaked, registry, config: None })
     }
 

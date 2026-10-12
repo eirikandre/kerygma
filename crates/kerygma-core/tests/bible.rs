@@ -111,3 +111,44 @@ fn word_importen_slar_opp_boker_vers_og_sok() {
     let hits = bible.search("nb30", &query);
     assert!(hits.iter().any(|h| h.chapter == 3 && h.verse == 16), "{hits:?}");
 }
+
+/// En liten oversettelse med én bok, laget her i stedet for en `.bin`-fil.
+fn small_translation(id: &str, title: &str, book_name: &str) -> Vec<u8> {
+    use bibel_format::build::{BuildVerse, Builder};
+    let mut builder = Builder::new(id, title, "Ingen");
+    let isa = builder.add_book(23, "Isa", "testia", book_name);
+    builder.add_chapter(isa, "", vec![BuildVerse::new(1, "første"), BuildVerse::new(2, "andre")]);
+    builder.finish()
+}
+
+/// Oversettelser kan legges til etter at appen er bygget: boknavnene deres gjenkjennes når
+/// oversettelsen er lastet, ikke bare navnene som er bygget inn.
+#[test]
+fn boknavn_fra_oversettelser_som_lastes_gjenkjennes() {
+    use kerygma_core::reference::{is_bible_reference, to_lookup};
+    let name = "Profetboken etter Testia";
+    assert!(!is_bible_reference(&format!("{name} 1:2")));
+    let bibel = Bibel::from_files(vec![("test.bin".to_string(), small_translation("test", "Test", name))]).unwrap();
+    assert!(is_bible_reference(&format!("{name} 1:2")));
+    assert_eq!(to_lookup(&format!("{name} 1:2")).as_deref(), Some("Isa1:2"));
+    // Referansen bibel skriver for oversettelsen, gjenkjennes også.
+    let reference = bibel.run(&["--format", "{ref}", "test:testia1:2"]).stdout;
+    assert_eq!(reference.trim(), format!("{name} 1:2"));
+}
+
+/// Finnes samme oversettelse i mappa til appen og i mappa brukeren har lagt den i,
+/// brukes brukerens.
+#[test]
+fn oversettelser_i_den_siste_mappa_gar_foran() {
+    let root = std::env::temp_dir().join(format!("kerygma-bibler-{}", std::process::id()));
+    let (app, user) = (root.join("app"), root.join("bruker"));
+    std::fs::create_dir_all(&app).unwrap();
+    std::fs::create_dir_all(&user).unwrap();
+    std::fs::write(app.join("a.bin"), small_translation("aa", "Fra appen", "Bok A")).unwrap();
+    std::fs::write(app.join("b.bin"), small_translation("bb", "Gammel", "Bok B")).unwrap();
+    std::fs::write(user.join("b-ny.bin"), small_translation("bb", "Ny", "Bok B")).unwrap();
+    let bibel = Bibel::load_dirs(&[&app, &user, &root.join("finnes-ikke")]).unwrap();
+    assert_eq!(bibel.ids(), ["aa", "bb"]);
+    assert_eq!(bibel.run(&["--format", "{oversettelse}", "bb:testia1:1"]).stdout.trim(), "Ny");
+    std::fs::remove_dir_all(root).unwrap();
+}
