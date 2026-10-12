@@ -870,9 +870,10 @@ button.primary:hover {
   padding: 1px 4px;
   border-radius: 4px;
 }
-.import-close {
-  display: block;
-  margin-left: auto;
+.import-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* --- Talervisning (presenter.ts): manuset i hovedvinduet, slidene på den andre skjermen --- */

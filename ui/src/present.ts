@@ -138,6 +138,8 @@ export async function present(slides: string[]) {
   const appWindow = getCurrentWindow();
   const wasFullscreen = await appWindow.isFullscreen().catch(() => false);
   const deckPromise = showDeck(slides, { keyboard: true });
+  // Menylinjen (på Windows) skjules, så slidene fyller hele skjermen.
+  await api.setMenuVisible(false).catch(() => {});
   if (!wasFullscreen) await appWindow.setFullscreen(true).catch(() => {});
   const deck = await deckPromise;
 
@@ -145,6 +147,7 @@ export async function present(slides: string[]) {
     document.removeEventListener("keydown", onKey, true);
     deck.destroy();
     if (!wasFullscreen) await appWindow.setFullscreen(false).catch(() => {});
+    await api.setMenuVisible(true).catch(() => {});
     running = false;
   };
   // Piltaster, mellomrom og PageUp/PageDown (fjernkontroller) blar i reveal.js. Esc avslutter.

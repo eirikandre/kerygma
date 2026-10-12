@@ -68,6 +68,11 @@ export const commands = {
 	lookupVerse: (input: string) => __TAURI_INVOKE<Suggestion_Serialize[]>("lookup_verse", { input }),
 	/**  Verset som markdown-sitat ved markøren, som `toQuote`. */
 	quoteVerse: (verse: string, before: string, after: string) => __TAURI_INVOKE<string>("quote_verse", { verse, before, after }),
+	/**
+	 *  Viser eller skjuler menylinjen i vinduet, så presentasjonen i fullskjerm fyller hele
+	 *  skjermen. Menyen er i vinduet bare på Windows og Linux; på macOS gjør dette ingenting.
+	 */
+	setMenuVisible: (visible: boolean) => __TAURI_INVOKE<null>("set_menu_visible", { visible }),
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
 	/**
 	 *  Lagrer innstillingene i vaulten og bygger bibel-registeret på nytt ved behov.
@@ -124,7 +129,7 @@ export type Appearance = {
 /**  Biblene er lastet, eller kunne ikke lastes (se `bible_status`). */
 export type BibleReady = null;
 
-export type BibleStatus = { kind: "loading" } | { kind: "ready"; ids: string[] } | { kind: "failed"; message: string };
+export type BibleStatus = { kind: "loading" } | { kind: "ready"; translations: Translation[] } | { kind: "failed"; message: string };
 
 /**  Innstillingene for bibel kunne ikke brukes da biblene ble lastet. */
 export type BibleWarning = string;
@@ -250,6 +255,12 @@ export type Suggestion_Serialize = {
 
 /**  Lyst eller mørkt tema i appen, eller det systemet bruker. */
 export type Theme = "system" | "light" | "dark";
+
+/**  En oversettelse som er lastet: id-en (som "kjv") og det fulle navnet. */
+export type Translation = {
+	id: string,
+	title: string,
+};
 
 export type Tree = {
 	/**  Navnet som vises: manus uten `.md`, andre filer med filendelse. */

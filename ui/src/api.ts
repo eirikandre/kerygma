@@ -16,6 +16,7 @@ export {
   type SearchResult,
   type Settings,
   type Theme,
+  type Translation,
   type Tree,
 } from "./bindings.ts";
 

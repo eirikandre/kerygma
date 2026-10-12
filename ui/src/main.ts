@@ -576,27 +576,24 @@ async function openHelp() {
   new WebviewWindow("help", { url: "help.html", title: "Kerygma – brukerveiledning", width: 860, height: 900 });
 }
 
-/** «Sett inn bilde»: velg ett eller flere bilder; de legges i bildemappa og settes inn ved markøren. */
+/**
+ * «Sett inn bilde»: velg ett eller flere bilder; de legges i bildemappa og settes inn ved markøren.
+ * Bare når manuset redigeres (presentasjoner vises alltid i lesevisning).
+ */
 async function insertImage() {
   if (!doc.path) {
     notice("Åpne et manus og sett markøren der bildet skal inn.");
     return;
   }
-  // Fra en presentasjon settes bildet inn i manuset.
-  if (!(await editManuscriptInstead())) return;
+  if (state.mode !== "edit") return;
   const path = doc.path;
-  if (!path) return;
   const chosen = await openDialog({
     multiple: true,
     title: "Sett inn bilde",
     filters: [{ name: "Bilder", extensions: IMAGE_EXTENSIONS }],
   });
   const files = Array.isArray(chosen) ? chosen : typeof chosen === "string" ? [chosen] : [];
-  if (files.length === 0 || doc.path !== path) return;
-  if (state.mode === "preview") {
-    state.mode = "edit";
-    await showMode();
-  }
+  if (files.length === 0 || doc.path !== path || state.mode !== "edit") return;
   const markdowns: string[] = [];
   for (const file of files) markdowns.push(await api.addImageFile(path, file));
   editor.insertImages(markdowns);
@@ -607,12 +604,8 @@ async function insertVerse() {
     notice("Åpne et manus og sett markøren der verset skal inn.");
     return;
   }
-  // Fra en presentasjon settes verset inn i manuset.
-  if (!(await editManuscriptInstead())) return;
-  if (state.mode === "preview") {
-    state.mode = "edit";
-    await showMode();
-  }
+  // Bare når manuset redigeres, som knappen.
+  if (state.mode !== "edit") return;
   openVerseModal(editor);
 }
 
@@ -627,6 +620,10 @@ async function importWordTo(folder: string, chosen: boolean) {
     async (path) => {
       await refreshTree();
       await openNote(path);
+    },
+    (query) => {
+      setSidebarHidden(false);
+      search.search(query);
     },
     chosen,
   );

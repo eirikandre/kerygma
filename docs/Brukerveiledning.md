@@ -70,11 +70,13 @@ Fet (`**tekst**`), kursiv (`*tekst*`), understreket (`<u>tekst</u>`), overstreke
 | lista *Vanlig tekst* | gjør linja markøren står på, til en overskrift (1–3) eller til vanlig tekst |
 | **B**, *I*, U, S | fet, kursiv, understreket og overstreket rundt det du har markert (eller ordet markøren står i). Trykk én gang til for å fjerne det. |
 | anførselstegn | gjør linjene du har markert, til et sitat (`>` foran), eller fjerner sitatet. Flere avsnitt blir ett sitat. |
-| øyet / pennen | bytter mellom å skrive og å lese teksten ferdig formatert (**Cmd/Ctrl + E**) |
 | boka | sett inn bibelvers |
 | bildet | sett inn bilde |
+| øyet / pennen | bytter mellom å skrive og å lese teksten ferdig formatert (**Cmd/Ctrl + E**) |
 | tavla | lag presentasjon |
 | ▷ | vis presentasjonen |
+
+Knappene fra *Vanlig tekst* til bildet vises bare når du skriver, ikke i lesevisningen.
 
 Hold musepekeren over en knapp for å se hva den gjør, og hurtigtasten.
 
@@ -127,7 +129,7 @@ Det lages en ny fil ved siden av manuset, med samme navn og ` - presentasjon` ba
 - Lange vers og sitater deles over flere slides.
 - Har du endret manuset, lager du presentasjonen én gang til. Den gamle erstattes uten at Kerygma spør. Du kan også gjøre det fra presentasjonen selv. Finnes det en fil med samme navn som Kerygma ikke har laget, spør Kerygma før den overskrives.
 
-Presentasjonen vises alltid ferdig formatert, som et mellomsteg før du starter den. Den redigeres ikke: trykker du på pennen (eller **Cmd/Ctrl + E**), åpnes manuset, og der gjør du endringene. Det samme gjelder **Sett inn bibelvers** og **Sett inn bilde**. Lag så presentasjonen på nytt.
+Presentasjonen vises alltid ferdig formatert, som et mellomsteg før du starter den. Den redigeres ikke: trykker du på pennen (eller **Cmd/Ctrl + E**), åpnes manuset, og der gjør du endringene. Lag så presentasjonen på nytt.
 
 Fila har en linje øverst, `<!-- kerygma-presentasjon: Påske.md -->`, som ikke vises, men forteller Kerygma hvilket manus presentasjonen er laget fra. Ikke slett den. Finnes ikke manuset lenger, vises et gult varsel.
 
@@ -186,7 +188,7 @@ Til slutt viser et vindu hvor mange bibelvers som ble funnet i hvert manus. Tryk
 > Du skal kalles med et nytt navn, som Herrens munn skal nevne. (Jesajas bok 62:2)
 ```
 
-1. Finn boksene ved å søke etter `[!warning|sjekk]` i manuset med **Cmd/Ctrl + F**.
+1. Trykk **Søk etter advarsler** i vinduet som vises etter importen. Da vises manusene med advarsler i sidefeltet, og du trykker på en linje for å gå dit. Du kan også søke etter `[!warning|sjekk]` i manuset med **Cmd/Ctrl + F**.
 2. Les verset og referansen. Rett det som er feil. Er det ikke et bibelvers, fjerner du `>` foran linjene og referansen bak.
 3. Slett den første linja, den som starter med `> [!warning|sjekk]`. Da forsvinner boksen.
 
@@ -204,9 +206,9 @@ Under **Presentasjoner og bibel** er innstillingene for mappa som er åpen:
 |---|---|
 | Postfix for presentasjon | det som står bak navnet på presentasjonen. Standard: ` - presentasjon` |
 | Maks tegn per slide | lengre vers og sitater deles over flere slides. Standard: 350 |
+| Standardoversettelse | velg oversettelsen du får når du setter inn vers uten prefiks. Standard: `nb30` |
 | Legg til oversettelse | slå av hvis du ikke vil ha engelsk ved siden av versene |
-| Oversettelse | oversettelsen ved siden av. Standard: `kjv` |
-| Standardoversettelse | oversettelsen du får når du setter inn vers uten prefiks. Standard: `nb30` |
+| Engelsk oversettelse | velg oversettelsen ved siden av. Standard: `kjv` |
 | Snarveier | korte navn på én eller flere oversettelser: `n` (norsk), `e` (engelsk) og `ne` (begge) |
 | Mappe for importerte Word-manus | tom: mappa til manuset som er åpent. «Importer Word-manus hit» i treet går foran |
 

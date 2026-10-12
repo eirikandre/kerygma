@@ -1,6 +1,6 @@
 // Innstillingene: for vaulten (`Settings`, i .kerygma/settings.json) og for appen (utseendet, i app.json).
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { api, type BibleStatus, errorMessage, events, type Settings, type Theme } from "./api.ts";
+import { api, type BibleStatus, errorMessage, events, type Settings, type Theme, type Translation } from "./api.ts";
 import { DEFAULT_SETTINGS } from "./bindings.ts";
 import { FONTS, MAX_SIZE, MIN_SIZE, THEMES, getAppearance, setAppearance } from "./appearance.ts";
 import { notice, openModal } from "./dialogs.ts";
@@ -11,13 +11,14 @@ import { SLIDE_FONTS, SLIDE_THEMES, applySlideStyle, loadSlideFonts, slideTheme 
 const DEFAULTS: Settings = { ...DEFAULT_SETTINGS };
 
 /** Felt `Settings::sanitized` trimmer, og felt som får standardverdien når de er tomme. */
-const TRIMMED = new Set<keyof Settings>(["translation", "defaultTranslation", "importFolder"]);
-const REQUIRED = new Set<keyof Settings>(["suffix", "translation", "defaultTranslation"]);
+const TRIMMED = new Set<keyof Settings>(["importFolder"]);
+const REQUIRED = new Set<keyof Settings>(["suffix"]);
 
 type Field =
   | { key: keyof Settings; name: string; desc: string; type: "text"; placeholder?: string }
   | { key: keyof Settings; name: string; desc: string; type: "toggle" }
-  | { key: keyof Settings; name: string; desc: string; type: "number" };
+  | { key: keyof Settings; name: string; desc: string; type: "number" }
+  | { key: "translation" | "defaultTranslation"; name: string; desc: string; type: "translation" };
 
 const FIELDS: Field[] = [
   {
@@ -33,6 +34,12 @@ const FIELDS: Field[] = [
     type: "number",
   },
   {
+    key: "defaultTranslation",
+    name: "Standardoversettelse",
+    desc: `Brukes når referansen ikke har prefiks, som "joh3:16". Standard: ${DEFAULTS.defaultTranslation}.`,
+    type: "translation",
+  },
+  {
     key: "addTranslation",
     name: "Legg til oversettelse",
     desc: "Vers som bare står på norsk i manuset, får en oversettelse ved siden av.",
@@ -40,15 +47,9 @@ const FIELDS: Field[] = [
   },
   {
     key: "translation",
-    name: "Oversettelse",
-    desc: "Oversettelsen som legges ved siden av, som id (som kjv eller nb30) eller snarvei. Standard: kjv.",
-    type: "text",
-  },
-  {
-    key: "defaultTranslation",
-    name: "Standardoversettelse",
-    desc: `Brukes når referansen ikke har prefiks, som "joh3:16". Standard: ${DEFAULTS.defaultTranslation}.`,
-    type: "text",
+    name: "Engelsk oversettelse",
+    desc: `Oversettelsen som legges ved siden av de norske versene. Standard: ${DEFAULTS.translation}.`,
+    type: "translation",
   },
   {
     key: "aliases",
@@ -106,7 +107,28 @@ export async function openSettings() {
     });
   };
 
+  // Valgene for oversettelse fylles når biblene er lastet, og på nytt når de lastes inn igjen.
+  const translationSelects: Array<() => void> = [];
+  let translations: Translation[] = [];
+  const updateTranslations = (status: BibleStatus) => {
+    if (status.kind === "ready") translations = status.translations;
+    for (const fill of translationSelects) fill();
+  };
+
   for (const field of FIELDS) {
+    if (field.type === "translation") {
+      const key = field.key;
+      const select = document.createElement("select");
+      const fill = () => fillTranslations(select, translations, settings[key]);
+      fill();
+      translationSelects.push(fill);
+      select.addEventListener("change", () => {
+        settings[key] = select.value;
+        save();
+      });
+      modal.el.append(settingRow(field.name, field.desc, select));
+      continue;
+    }
     const row = document.createElement("label");
     row.className = "setting";
     const info = document.createElement("div");
@@ -158,7 +180,7 @@ export async function openSettings() {
     "Bibeloversettelser",
     "Gjelder appen. Flere oversettelser (.bin-filer) kan legges i mappa under; de beholdes når Kerygma oppdateres.",
   );
-  bibleSettings(modal.el);
+  bibleSettings(modal.el, updateTranslations);
 
   const hotkeys = document.createElement("p");
   hotkeys.className = "setting-desc";
@@ -183,13 +205,39 @@ export async function openSettings() {
   modal.el.append(footer);
 }
 
+/**
+ * Fyller lista med oversettelsene som er lastet. Er verdien noe annet (en snarvei, eller en
+ * oversettelse som ikke er installert), står den også i lista, så den ikke byttes ut uten at
+ * brukeren velger det.
+ */
+function fillTranslations(select: HTMLSelectElement, translations: Translation[], value: string) {
+  select.replaceChildren();
+  for (const translation of translations) {
+    const option = document.createElement("option");
+    option.value = translation.id;
+    option.textContent = translation.title ? `${translation.title} (${translation.id})` : translation.id;
+    select.append(option);
+  }
+  const match = translations.find((t) => t.id.toLowerCase() === value.toLowerCase());
+  if (match) {
+    select.value = match.id;
+  } else {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = translations.length === 0 ? value : `${value} (ikke installert)`;
+    select.prepend(option);
+    select.value = value;
+  }
+}
+
 /** Oversettelsene som er installert, og mappa der brukeren kan legge til flere. */
-function bibleSettings(parent: HTMLElement) {
+function bibleSettings(parent: HTMLElement, onStatus: (status: BibleStatus) => void) {
   const installed = document.createElement("span");
   installed.className = "setting-value";
   const show = (status: BibleStatus) => {
     installed.textContent =
-      status.kind === "ready" ? status.ids.join(", ") : status.kind === "loading" ? "Lastes …" : status.message;
+      status.kind === "ready" ? ids(status.translations) : status.kind === "loading" ? "Lastes …" : status.message;
+    onStatus(status);
   };
   void api.bibleStatus().then(show);
   parent.append(settingRow("Installert", "Oversettelsene appen har nå.", installed));
@@ -225,7 +273,7 @@ function bibleSettings(parent: HTMLElement) {
       const done = await events.bibleReady.once(async () => {
         const status = await api.bibleStatus();
         show(status);
-        if (status.kind === "ready") notice(`Oversettelsene er lastet: ${status.ids.join(", ")}`);
+        if (status.kind === "ready") notice(`Oversettelsene er lastet: ${ids(status.translations)}`);
       });
       try {
         await api.reloadBibles();
@@ -243,6 +291,10 @@ function bibleSettings(parent: HTMLElement) {
   );
   row.querySelector(".setting-info")!.append(folder);
   parent.append(row);
+}
+
+function ids(translations: Translation[]): string {
+  return translations.map((t) => t.id).join(", ");
 }
 
 function section(parent: HTMLElement, title: string, desc: string) {

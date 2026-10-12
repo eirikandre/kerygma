@@ -64,6 +64,12 @@ export class SearchView {
     this.input.select();
   }
 
+  /** Søker etter teksten, som om den var skrevet i feltet. */
+  search(query: string) {
+    this.input.value = query;
+    this.schedule(0);
+  }
+
   clear() {
     this.input.value = "";
     this.schedule(0);

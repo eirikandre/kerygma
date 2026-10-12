@@ -158,6 +158,11 @@ impl Bibel {
     pub fn ids(&self) -> Vec<&'static str> {
         self.registry.ids()
     }
+
+    /// Id-en og det fulle navnet til hver oversettelse, som ("nb30", "Bibelen 1930").
+    pub fn titles(&self) -> Vec<(&'static str, &'static str)> {
+        self.registry.iter().map(|bible| (bible.id(), bible.title())).collect()
+    }
 }
 
 /// Slår opp referansene i en annen oversettelse, og gir utdataene ("tekst (ref)")

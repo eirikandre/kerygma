@@ -3,13 +3,17 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api, basename, type ImportedFile } from "./api.ts";
 import { confirmOverwrite, notice, openModal } from "./dialogs.ts";
 
+/** Første linje i boksen rundt et sitat som bør sjekkes (`> [!warning|sjekk] …`), som `word::convert`. */
+const WARNING_MARKER = "[!warning|sjekk]";
+
 /**
  * Gjør valgte .docx-filer om til markdown med bibelsitatene som "> tekst (ref)".
- * Er det bare én fil, åpnes den.
+ * Er det bare én fil, åpnes den. `search` søker i alle manusene, for å finne advarslene.
  */
 export async function importWord(
   currentFolder: string,
   openNote: (path: string) => Promise<void>,
+  search: (query: string) => void,
   folderChosen = false,
 ) {
   const chosen = await openDialog({
@@ -41,11 +45,11 @@ export async function importWord(
   const all = [...imported, ...skipped];
   const done = all.filter((file) => file.path);
   if (done.length === 1 && all.length === 1) await openNote(done[0].path!);
-  showReport(all, openNote);
+  showReport(all, openNote, search);
 }
 
 /** Viser hvor mange sitater som ble funnet i hver fil, og hva som bør sjekkes. */
-function showReport(imported: ImportedFile[], openNote: (path: string) => Promise<void>) {
+function showReport(imported: ImportedFile[], openNote: (path: string) => Promise<void>, search: (query: string) => void) {
   const modal = openModal("import-modal");
   const heading = document.createElement("h2");
   heading.textContent = "Importerte Word-manus";
@@ -95,7 +99,8 @@ function showReport(imported: ImportedFile[], openNote: (path: string) => Promis
       <p>Sitatene verktøyet er usikre på, står i en gul boks i manuset. Øverst i boksen står det hvorfor,
         for eksempel at verset ble funnet med søk fordi manuset ikke hadde referanse.</p>
       <ol>
-        <li>Finn boksene ved å søke etter <code>[!warning|sjekk]</code> i manuset med Cmd/Ctrl + F.</li>
+        <li>Trykk «Søk etter advarsler», så vises manusene med advarsler i sidefeltet. Trykk på en linje for å gå dit.
+          Du kan også søke etter <code>[!warning|sjekk]</code> i manuset med Cmd/Ctrl + F.</li>
         <li>Les sitatet og referansen i parentes. Rett det som er feil. Er det ikke et bibelsitat,
           fjern &gt; foran linjene og referansen bak.</li>
         <li>Slett den første linja: <code>&gt; [!warning|sjekk] …</code>. Da blir resten et vanlig sitat, og boksen forsvinner.</li>
@@ -104,10 +109,23 @@ function showReport(imported: ImportedFile[], openNote: (path: string) => Promis
     modal.el.append(help);
   }
 
+  const buttons = document.createElement("div");
+  buttons.className = "import-buttons";
+  if (warnings > 0) {
+    const find = document.createElement("button");
+    find.type = "button";
+    find.textContent = "Søk etter advarsler";
+    find.addEventListener("click", () => {
+      modal.close();
+      search(WARNING_MARKER);
+    });
+    buttons.append(find);
+  }
   const close = document.createElement("button");
   close.type = "button";
   close.textContent = "Lukk";
-  close.className = "import-close";
+  close.className = "primary";
   close.addEventListener("click", () => modal.close());
-  modal.el.append(close);
+  buttons.append(close);
+  modal.el.append(buttons);
 }

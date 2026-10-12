@@ -2,9 +2,13 @@
 // Hovedvinduet bestemmer hvilken slide som vises. Tastene her (også fra en fjernkontroll,
 // som sender dem til vinduet som har fokus) sendes tilbake til hovedvinduet.
 import { emitTo, listen } from "@tauri-apps/api/event";
+import { api } from "./api.ts";
 import { type Deck, showDeck } from "./present.ts";
 import { PRESENTER_EVENTS, type PresenterInit, presenterKey } from "./presenterEvents.ts";
 import "./styles.css";
+
+// Vinduet viser bare slidene, uten menylinjen (som det ellers får på Windows).
+void api.setMenuVisible(false).catch(() => {});
 
 let deck: Deck | undefined;
 let pending: number | undefined;

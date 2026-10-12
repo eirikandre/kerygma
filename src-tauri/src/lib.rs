@@ -171,6 +171,7 @@ fn specta_builder() -> tauri_specta::Builder<Wry> {
             commands::pdf_cancel,
             commands::lookup_verse,
             commands::quote_verse,
+            commands::set_menu_visible,
             commands::get_settings,
             commands::set_settings,
             commands::bible_status,

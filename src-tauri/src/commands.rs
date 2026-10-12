@@ -347,6 +347,14 @@ pub fn quote_verse(verse: String, before: String, after: String) -> String {
     verse_query::to_quote(&verse, &before, &after)
 }
 
+/// Viser eller skjuler menylinjen i vinduet, så presentasjonen i fullskjerm fyller hele
+/// skjermen. Menyen er i vinduet bare på Windows og Linux; på macOS gjør dette ingenting.
+#[tauri::command]
+#[specta::specta]
+pub fn set_menu_visible(window: tauri::Window, visible: bool) -> Result<()> {
+    if visible { window.show_menu() } else { window.hide_menu() }.map_err(|e| format!("Kunne ikke endre menyen: {e}"))
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn get_settings(state: State<AppState>) -> Settings {
@@ -390,11 +398,18 @@ pub fn reload_bibles(app: AppHandle, state: State<AppState>) {
     crate::load_bibles(&app);
 }
 
+/// En oversettelse som er lastet: id-en (som "kjv") og det fulle navnet.
+#[derive(Serialize, specta::Type)]
+pub struct Translation {
+    pub id: String,
+    pub title: String,
+}
+
 #[derive(Serialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum BibleStatus {
     Loading,
-    Ready { ids: Vec<String> },
+    Ready { translations: Vec<Translation> },
     Failed { message: String },
 }
 
@@ -403,7 +418,13 @@ pub enum BibleStatus {
 pub fn bible_status(state: State<'_, AppState>) -> BibleStatus {
     match state.bible() {
         BibleState::Loading => BibleStatus::Loading,
-        BibleState::Ready(bibel) => BibleStatus::Ready { ids: bibel.ids().iter().map(|s| s.to_string()).collect() },
+        BibleState::Ready(bibel) => BibleStatus::Ready {
+            translations: bibel
+                .titles()
+                .into_iter()
+                .map(|(id, title)| Translation { id: id.to_string(), title: title.to_string() })
+                .collect(),
+        },
         BibleState::Failed(message) => BibleStatus::Failed { message },
     }
 }
