@@ -265,14 +265,14 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "bibel-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bibel-format",
 ]
 
 [[package]]
 name = "bibel-format"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "bit-set"
@@ -2218,7 +2218,7 @@ dependencies = [
 
 [[package]]
 name = "kerygma-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "block2",
  "kerygma-core",
@@ -2240,14 +2240,14 @@ dependencies = [
 
 [[package]]
 name = "kerygma-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "kerygma-core",
 ]
 
 [[package]]
 name = "kerygma-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bibel-core",
  "bibel-format",
